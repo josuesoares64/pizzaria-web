@@ -7,6 +7,7 @@ export interface CartItem {
   id: number;            // id único do item no carrinho
   flavors: PizzaItem[];  // até 2 sabores
   size: string;          // Pequena, Média, Grande
+  price: number;         // preço da pizza
   qtd: number;
 }
 

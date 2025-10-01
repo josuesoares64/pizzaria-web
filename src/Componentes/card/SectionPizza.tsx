@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { pizzasDoces, pizzasSalgadas, type PizzaItem } from "@/data/menu";
-import CardPizza from "@/Componentes/card/CardPizza";
-import { useCart } from "@/context/CartContext";
+import CardPizza from '@/Componentes/card/CardPizza';
+import { useCart } from '@/context/CartContext';
+import { pizzasDoces, pizzasSalgadas, type PizzaItem } from '@/data/menu';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type SelectionMap = Record<number, number>;
 
 export default function SectionPizza() {
   const [selection, setSelection] = useState<SelectionMap>({});
-  const [size, setSize] = useState<string>("");
+  const [size, setSize] = useState<string>('');
   const addToCartRef = useRef<HTMLDivElement | null>(null);
 
   const { addToCart } = useCart();
@@ -23,7 +23,7 @@ export default function SectionPizza() {
   const locked = totalSelected >= 2;
 
   const handleIncrease = (pizza: PizzaItem) => {
-    setSelection((prev) => {
+    setSelection(prev => {
       const currentTotal = Object.values(prev).reduce((s, n) => s + n, 0);
       if (currentTotal >= 2) return prev;
       const current = prev[pizza.id] || 0;
@@ -33,7 +33,7 @@ export default function SectionPizza() {
   };
 
   const handleDecrease = (pizza: PizzaItem) => {
-    setSelection((prev) => {
+    setSelection(prev => {
       const current = prev[pizza.id] || 0;
       if (current <= 0) return prev;
       const next = { ...prev, [pizza.id]: current - 1 };
@@ -46,40 +46,40 @@ export default function SectionPizza() {
     const flavors: PizzaItem[] = [];
     for (const [idStr, count] of Object.entries(selection)) {
       const id = Number(idStr);
-      const item = allPizzas.find((p) => p.id === id);
+      const item = allPizzas.find(p => p.id === id);
       if (item) {
         for (let i = 0; i < count; i++) flavors.push(item);
       }
     }
 
     if (flavors.length !== 2 || !size) {
-      alert("⚠️ Escolha 2 sabores e um tamanho!");
+      alert('⚠️ Escolha 2 sabores e um tamanho!');
       return;
     }
 
     // Encontrar o preço baseado no tamanho selecionado
     const basePizza = flavors[0];
     const selectedSizePrice = basePizza.prices.find(p => p.size === size);
-    
+
     if (!selectedSizePrice) {
-      alert("⚠️ Tamanho não disponível para esta pizza!");
+      alert('⚠️ Tamanho não disponível para esta pizza!');
       return;
     }
 
-    addToCart({ 
-      flavors, 
-      size, 
+    addToCart({
+      flavors,
+      size,
       price: selectedSizePrice.price,
-      qtd: 1 
+      qtd: 1,
     });
 
     setSelection({});
-    setSize("");
+    setSize('');
   };
 
   useEffect(() => {
     if (locked && addToCartRef.current) {
-      addToCartRef.current.scrollIntoView({ behavior: "smooth" });
+      addToCartRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [locked]);
 
@@ -98,7 +98,7 @@ export default function SectionPizza() {
 
       {/* GRID DE PIZZAS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {allPizzas.map((pizza) => (
+        {allPizzas.map(pizza => (
           <CardPizza
             key={pizza.id}
             pizza={pizza}
@@ -115,7 +115,7 @@ export default function SectionPizza() {
         <div ref={addToCartRef} className="mt-6 text-center">
           <select
             value={size}
-            onChange={(e) => setSize(e.target.value)}
+            onChange={e => setSize(e.target.value)}
             className="border p-2 rounded mb-3"
           >
             <option value="">Selecione o tamanho</option>
@@ -129,7 +129,7 @@ export default function SectionPizza() {
 
           <button
             onClick={handleAddToCart}
-            className="bg-red-500 text-black-300 px-6 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+            className="bg-black text-black px-6 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
             disabled={!size}
           >
             Adicionar Pizza ao Carrinho

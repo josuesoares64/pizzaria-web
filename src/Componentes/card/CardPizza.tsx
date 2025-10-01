@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { PizzaItem } from "@/data/menu";
+import { PizzaItem } from '@/data/menu';
 
 type CardPizzaProps = {
   pizza: PizzaItem;
