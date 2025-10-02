@@ -1,3 +1,5 @@
+import { PizzaItem } from "./menu";
+
 export const pizzasSalgadas: PizzaItem[] = [
   {
     id: 1,
