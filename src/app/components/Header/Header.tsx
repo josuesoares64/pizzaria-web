@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { FaShoppingCart } from 'react-icons/fa';
 import { FiMenu, FiX } from 'react-icons/fi';
-import CartAside from '../../../context/CartAside';
+import CartAside from '../CartAside/CartAside';
 
 const Header = () => {
   const { isOpen, toggleCart, cartItems } = useCart();
