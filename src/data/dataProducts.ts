@@ -1,4 +1,4 @@
-import { PizzaItem } from "./menu";
+import { BebidaItem, PizzaItem, SobremesasItem } from "./menu";
 
 export const pizzasSalgadas: PizzaItem[] = [
   {
