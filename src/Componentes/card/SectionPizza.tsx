@@ -122,7 +122,6 @@ export default function SectionPizza() {
             <option value="Pequena">Pequena</option>
             <option value="Média">Média</option>
             <option value="Grande">Grande</option>
-            <option value="Família">Família</option>
           </select>
 
           <br />
