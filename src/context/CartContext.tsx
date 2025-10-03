@@ -13,7 +13,7 @@ export interface CartItem {
 
 interface CartContextType {
   cartItems: CartItem[];
-  addToCart: (item: Omit<CartItem, "id" | "price">) => void;
+  addToCart: (item: Omit<CartItem, "id">) => void;
   removeFromCart: (id: number) => void;
   isOpen: boolean;
   toggleCart: () => void;
