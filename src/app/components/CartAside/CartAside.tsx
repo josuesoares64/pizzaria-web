@@ -5,7 +5,7 @@ import { useCart } from "../../../context/CartContext";
 import { FaTrashAlt, FaPlus, FaMinus } from 'react-icons/fa';
 
 export default function CartAside() {
-  const { isOpen, toggleCart, cartItems, removeFromCart, updateQuantity } = useCart();
+  const { isOpen, closeCart, cartItems, removeFromCart, updateQuantity } = useCart();
 
   const onIncrease = (itemId: number, currentQtd: number) => {
     updateQuantity(itemId, currentQtd + 1);
@@ -27,7 +27,7 @@ export default function CartAside() {
     }`}>
       <div className="flex justify-between items-center mb-6">
         <h2 className="font-bold text-lg text-red-600">Seu Carrinho</h2>
-        <button onClick={toggleCart} className="hover:bg-gray-100 p-1 rounded">
+        <button onClick={closeCart} className="hover:bg-gray-100 p-1 rounded">
           <FiX size={20} />
         </button>
       </div>

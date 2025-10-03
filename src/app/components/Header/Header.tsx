@@ -9,7 +9,7 @@ import { FiMenu, FiX } from 'react-icons/fi';
 import CartAside from '../CartAside/CartAside';
 
 const Header = () => {
-  const { isOpen, toggleCart, cartItems } = useCart();
+  const { toggleCart, cartItems } = useCart();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // quantidade total de itens
