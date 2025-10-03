@@ -116,7 +116,7 @@ export default function SectionPizza() {
           <select
             value={size}
             onChange={e => setSize(e.target.value)}
-            className="border p-2 rounded mb-3"
+            className="border border-black p-1 bg-gray-300 text-center rounded mb-3"
           >
             <option value="">Selecione o tamanho</option>
             <option value="Pequena">Pequena</option>
@@ -129,8 +129,8 @@ export default function SectionPizza() {
 
           <button
             onClick={handleAddToCart}
-            className="bg-black text-black px-6 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-            disabled={!size}
+            className='text-black bg-green-600 cursor-pointer p-2 rounded-md font-bold border border-black'
+            
           >
             Adicionar Pizza ao Carrinho
           </button>
