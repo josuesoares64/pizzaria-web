@@ -41,8 +41,6 @@ O layout foi pensado para refletir a identidade de uma pizzaria real, priorizand
 ## 📸 **Preview**
 ![Screenshot do projeto](./public/img/Projeto-pizzaria.png)
 
-*(Substitua por uma imagem real do projeto — basta capturar a tela principal e salvar como `preview.png` na raiz do repositório.)*
-
 ---
 
 ## 📚 **Aprendizados**
