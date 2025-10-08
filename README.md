@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🍕 Pizzaria Web  
 
-## Getting Started
+Aplicação web moderna desenvolvida com **React**, **Next.js**, **TypeScript** e **Tailwind CSS**, simulando o site de uma pizzaria.  
+O projeto oferece uma interface interativa e responsiva, permitindo que o usuário explore o cardápio e visualize os produtos de forma prática e agradável.  
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🚀 **Demonstração**
+🔗 [Acesse o projeto online](https://pizzaria-web-drab.vercel.app/)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🧠 **Sobre o projeto**
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+A **Pizzaria Web** foi criada com o objetivo de praticar o desenvolvimento de **interfaces modernas e componentizadas** utilizando o ecossistema do React e o poder do Next.js para otimização e desempenho.  
+O layout foi pensado para refletir a identidade de uma pizzaria real, priorizando **experiência do usuário**, **organização visual** e **design responsivo** com Tailwind CSS.  
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## ⚙️ **Funcionalidades**
+- 🍕 Exibição de cardápio com categorias de sabores  
+- 🧭 Navegação intuitiva entre seções  
+- 📱 Layout totalmente responsivo  
+- ⚡ Performance otimizada com Next.js  
+- 🧩 Componentização reutilizável com React e TypeScript  
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🛠️ **Tecnologias utilizadas**
 
-## Deploy on Vercel
+| Tecnologia | Descrição |
+|-------------|------------|
+| **React** | Biblioteca para criação de interfaces dinâmicas |
+| **Next.js** | Framework para renderização otimizada e rotas automáticas |
+| **TypeScript** | Tipagem estática para maior segurança e produtividade |
+| **Tailwind CSS** | Framework de estilização com classes utilitárias |
+| **Vercel** | Plataforma de deploy para aplicações Next.js |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📸 **Preview**
+![Screenshot do projeto](./preview.png)
+
+*(Substitua por uma imagem real do projeto — basta capturar a tela principal e salvar como `preview.png` na raiz do repositório.)*
+
+---
+
+## 📚 **Aprendizados**
+Durante o desenvolvimento, aprimorei:
+- Organização de pastas e componentes em Next.js  
+- Uso de **TypeScript** para melhorar legibilidade e evitar erros  
+- Estilização responsiva com **Tailwind CSS**  
+- Boas práticas de **componentização e reuso de código**  
+- Deploy otimizado na **Vercel**  
+
+---
+
+## 🔮 **Melhorias futuras**
+- Implementar sistema de carrinho de compras  
+- Adicionar integração com API de pedidos  
+- Criar painel administrativo para controle do cardápio  
+
+---
+
+## 👨‍💻 **Autor**
+**Josué Bezerra Soares**  
+💼 [LinkedIn](https://www.linkedin.com/in/josue-soares-dev/)  
+🌐 [Portfólio](https://josuesoaresdev.vercel.app/)  
+📧 josue.bezerra.2020@gmail.com  
+
+---
+
+⭐ *Se gostou do projeto, não esqueça de deixar uma estrela no repositório!*
