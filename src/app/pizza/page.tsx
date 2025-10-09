@@ -1,6 +1,6 @@
 "use client";
 
-import SectionPizza from "@/Componentes/card/SectionPizza";
+import SectionPizza from "@/app/components/card/SectionPizza";
 
 export default function PizzaPage() {
   return (
