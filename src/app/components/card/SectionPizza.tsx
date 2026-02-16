@@ -2,19 +2,40 @@
 
 import CardPizza from "@/app/components/card/CardPizza";
 import { useCart } from "@/context/CartContext";
-import { pizzasDoces, pizzasSalgadas, type PizzaItem } from "@/server/data/menu";
+import { getPizzas, type PizzaItem } from "@/server/data/dataProducts";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-type SelectionMap = Record<number, number>;
+type SelectionMap = Record<string, number>;
 
 export default function SectionPizza() {
   const [selection, setSelection] = useState<SelectionMap>({});
   const [size, setSize] = useState<string>("");
+  const [pizzasDoces, setPizzasDoces] = useState<PizzaItem[]>([]);
+  const [pizzasSalgadas, setPizzasSalgadas] = useState<PizzaItem[]>([]);
   const addToCartRef = useRef<HTMLDivElement | null>(null);
 
   const { addToCart } = useCart();
 
-  const allPizzas = useMemo(() => [...pizzasSalgadas, ...pizzasDoces], []);
+  // 🔥 carregar pizzas da API
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await getPizzas();
+        setPizzasDoces(data.pizzasDoces);
+        setPizzasSalgadas(data.pizzasSalgadas);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    load();
+  }, []);
+
+  const allPizzas = useMemo(
+    () => [...pizzasSalgadas, ...pizzasDoces],
+    [pizzasSalgadas, pizzasDoces]
+  );
+
   const totalSelected = useMemo(
     () => Object.values(selection).reduce((sum, n) => sum + n, 0),
     [selection]
@@ -26,8 +47,10 @@ export default function SectionPizza() {
     setSelection((prev) => {
       const currentTotal = Object.values(prev).reduce((s, n) => s + n, 0);
       if (currentTotal >= 2) return prev;
+
       const current = prev[pizza.id] || 0;
       if (current >= 2) return prev;
+
       return { ...prev, [pizza.id]: current + 1 };
     });
   };
@@ -36,6 +59,7 @@ export default function SectionPizza() {
     setSelection((prev) => {
       const current = prev[pizza.id] || 0;
       if (current <= 0) return prev;
+
       const next = { ...prev, [pizza.id]: current - 1 };
       if (next[pizza.id] === 0) delete next[pizza.id];
       return next;
@@ -44,8 +68,8 @@ export default function SectionPizza() {
 
   const handleAddToCart = () => {
     const flavors: PizzaItem[] = [];
-    for (const [idStr, count] of Object.entries(selection)) {
-      const id = Number(idStr);
+
+    for (const [id, count] of Object.entries(selection)) {
       const item = allPizzas.find((p) => p.id === id);
       if (item) {
         for (let i = 0; i < count; i++) flavors.push(item);
@@ -57,9 +81,10 @@ export default function SectionPizza() {
       return;
     }
 
-    // Encontrar o preço baseado no tamanho selecionado
     const basePizza = flavors[0];
-    const selectedSizePrice = basePizza.prices.find((p) => p.size === size);
+    const selectedSizePrice = basePizza.prices.find(
+      (p) => p.size === size
+    );
 
     if (!selectedSizePrice) {
       alert("⚠️ Tamanho não disponível para esta pizza!");
@@ -85,7 +110,6 @@ export default function SectionPizza() {
 
   return (
     <section className="p-6 mt-20">
-      {/* TÍTULO E INSTRUÇÕES */}
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold mb-4">Monte Sua Pizza</h2>
         <p className="text-lg text-gray-600">
@@ -96,7 +120,6 @@ export default function SectionPizza() {
         </p>
       </div>
 
-      {/* GRID DE PIZZAS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {allPizzas.map((pizza) => (
           <CardPizza
@@ -110,7 +133,6 @@ export default function SectionPizza() {
         ))}
       </div>
 
-      {/* SELEÇÃO DE TAMANHO E BOTÃO ADICIONAR */}
       {locked && (
         <div ref={addToCartRef} className="mt-6 text-center">
           <select
@@ -122,6 +144,7 @@ export default function SectionPizza() {
             <option value="Pequena">Pequena</option>
             <option value="Média">Média</option>
             <option value="Grande">Grande</option>
+            <option value="Família">Família</option>
           </select>
 
           <br />
