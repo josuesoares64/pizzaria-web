@@ -1,4 +1,4 @@
-import type { PizzaItem } from "@/server/data/menu";
+import type { PizzaItem } from "@/server/data/dataProducts";
 import Image from "next/image";
 import { FaMinus, FaPlus } from "react-icons/fa";
 

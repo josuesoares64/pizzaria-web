@@ -63,3 +63,54 @@ export async function getPizzas() {
     };
   }
 }
+
+export type EsfihaAPI = {
+  id: string;
+  nome: string;
+  descricao: string;
+  imagem: string;
+  preco: string;
+};
+
+export type EsfihaItem = {
+  id: string;
+  name: string;
+  description: string;
+  image: string;
+  price: number; // Alterado para number para facilitar cálculos
+};
+
+export async function getEsfihas() {
+  try {
+    console.log("📡 Buscando esfihas em:", `${API_URL}/esfiha`);
+
+    const res = await fetch(`${API_URL}/esfiha`, {
+      cache: "no-store",
+    });
+
+    console.log("📊 Status da resposta:", res.status);
+
+    if (!res.ok) {
+      throw new Error("Erro ao buscar esfihas");
+    }
+
+    const data: EsfihaAPI[] = await res.json();
+    console.log("📦 Dados recebidos da API:", data);
+
+    // Transformação dos dados para o padrão do componente
+    const esfihas: EsfihaItem[] = data.map((esfiha) => ({
+      id: esfiha.id,
+      name: esfiha.nome,
+      description: esfiha.descricao,
+      image: `${API_URL}/${esfiha.imagem}`, // URL completa da imagem
+      price: Number(esfiha.preco), // Convertendo string para número
+    }));
+
+    console.log("🧩 Esfihas transformadas:", esfihas);
+
+    return esfihas;
+  } catch (error) {
+    console.error("❌ Erro no getEsfihas:", error);
+    return [];
+  }
+}
