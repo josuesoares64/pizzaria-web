@@ -114,3 +114,53 @@ export async function getEsfihas() {
     return [];
   }
 }
+
+export type sobremesaAPI = {
+  id: string;
+  nome: string;
+  descricao: string;
+  imagem: string;
+  preco: string;
+};
+
+export type SobremesaItem = {
+  id: string;
+  name: string;
+  description: string;
+  imagem: string;
+  price: number;
+};
+
+export async function getSobremesas() {
+  try {
+    console.log("Buscando sobremesas em:", `${API_URL}/sobremesa`);
+
+    const res = await fetch(`${API_URL}/sobremesa`, {
+      cache: "no-store"
+    })
+
+    console.log("Status da resposta:", res.status);
+
+    if (!res.ok) {
+      throw new Error("Erro ao buscar sobremesas");
+    }
+    
+    const data: sobremesaAPI[] = await res.json();
+    console.log("Dados recebidos da API:", data);
+
+    const sobremesas: SobremesaItem[] = data.map((sobremesa) => ({
+      id: sobremesa.id,
+      name: sobremesa.nome,
+      description: sobremesa.descricao,
+      imagem: `${API_URL}/${sobremesa.imagem}`,
+      price: Number(sobremesa.preco),
+    }));
+
+    console.log("Sobremesas transformadas:", sobremesas);
+
+    return sobremesas;
+  } catch (error) {
+    console.error("Erro no getSobremesas:", error);
+    return [];
+  }
+}
