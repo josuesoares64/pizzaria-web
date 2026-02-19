@@ -164,3 +164,53 @@ export async function getSobremesas() {
     return [];
   }
 }
+
+export type bebidaAPI = {
+  id: string;
+  nome: string;
+  descricao: string;
+  imagem: string;
+  preco: string;
+};
+
+export type BebidaItem = {
+  id: string;
+  name: string;
+  description: string;
+  imagem: string;
+  price: number;
+};
+
+export async function getBebidas() {
+  try {
+    console.log("Buscando bebidas em:", `${API_URL}/bebida`)
+
+    const res = await fetch(`${API_URL}/bebida`, {
+      cache: "no-store"
+    });
+
+    console.log("Status da resposta:", res.status);
+
+    if (!res.ok) {
+      throw new Error("Erro ao buscar bebidas");
+    }
+
+    const data: bebidaAPI[] = await res.json();
+    console.log("Dados recebidos da API:", data);
+
+    const bebidas: BebidaItem[] = data.map((bebida) => ({
+      id: bebida.id,
+      name: bebida.nome,
+      description: bebida.descricao,
+      imagem: `${API_URL}/${bebida.imagem}`,
+      price: Number(bebida.preco),
+    }));
+
+    console.log("Bebidas transformadas:", bebidas);
+
+    return bebidas;
+  } catch (error) {
+    console.error("Erro no getBebidas:", error);
+    return [];
+  }
+}

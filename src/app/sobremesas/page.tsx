@@ -33,12 +33,12 @@ export default function Sobremesas() {
     }
 
     return (
-        <section>
-            <div>
-                <h2>Escolha sua sobremesa</h2>
+        <section className="p-6 mt-20">
+            <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold">Escolha sua sobremesa</h2>
             </div>
 
-            <div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {sobremesas.map((sobremesa) => (
                     <CardSobremesa
                     key={sobremesa.id}

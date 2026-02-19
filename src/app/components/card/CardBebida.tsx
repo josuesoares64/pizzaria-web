@@ -1,34 +1,29 @@
-import { SobremesaItem } from "@/server/data/dataProducts";
+import { BebidaItem } from "@/server/data/dataProducts";
 import Image from "next/image";
 import { FaCartPlus } from "react-icons/fa";
 
-type CardSobremesaProps = {
-  sobremesa: SobremesaItem;
+type CardBebidaProps = {
+  bebida: BebidaItem;
   onAdd: () => void;
 };
 
-export default function CardSobremesa({
-  sobremesa,
-  onAdd,
-}: CardSobremesaProps) {
+export default function CardBebida({ bebida, onAdd }: CardBebidaProps) {
   return (
     <div className="border border-gray-200 rounded-xl bg-white p-5 shadow-md hover:shadow-xl transition-all duration-300 flex flex-col h-full  hover:bg-gray-50group">
       <Image
-        src={sobremesa.imagem}
-        alt={sobremesa.name}
-        width={300}
-        height={200}
+        src={bebida.imagem}
+        alt={bebida.name}
+        width={200}
+        height={500}
         className="w-full h-48 border border-gray-200 rounded-t-lg object-cover"
       />
-      
+
       <div className="p-4">
-        <h3 className="text-lg font-semibold">{sobremesa.name}</h3>
+        <h3 className="text-lg font-semibold">{bebida.name}</h3>
 
-        <p className="text-gray-600">{sobremesa.description}</p>
+        <p className="text-gray-600">{bebida.description}</p>
 
-        <p className="text-lg font-bold mt-2">
-          R$ {sobremesa.price.toFixed(2)}
-        </p>
+        <p className="text-lg font-bold mt-2">R$ {bebida.price.toFixed(2)}</p>
 
         <button
           onClick={onAdd}

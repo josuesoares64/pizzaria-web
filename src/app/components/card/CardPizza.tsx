@@ -18,7 +18,7 @@ export default function CardPizza({
   onDecrease,
 }: CardPizzaProps) {
   return (
-    <div className="border border-gray-200 rounded-xl bg-white p-5 shadow-md hover:shadow-xl transition-all duration-300 flex flex-col h-full  hover:bg-gray-50group
+    <div className="border border-gray-200 rounded-xl bg-zinc-100 p-5 shadow-md hover:shadow-xl transition-all duration-300 flex flex-col h-full  hover:bg-gray-50group
 "
     >
       {/* Imagem */}
@@ -28,7 +28,7 @@ export default function CardPizza({
           alt={pizza.name}
           width={120}
           height={120}
-          className="rounded-lg transition-transform duration-300 group-hover:scale-105"
+          className="border border-gray-200 rounded-xl transition-transform duration-300 group-hover:scale-105"
         />
       </div>
 
