@@ -10,13 +10,16 @@ type CardBebidaProps = {
 export default function CardBebida({ bebida, onAdd }: CardBebidaProps) {
   return (
     <div className="border border-gray-200 rounded-xl bg-white p-5 shadow-md hover:shadow-xl transition-all duration-300 flex flex-col h-full  hover:bg-gray-50group">
-      <Image
-        src={bebida.imagem}
-        alt={bebida.name}
-        width={200}
-        height={500}
-        className="w-full h-48 border border-gray-200 rounded-t-lg object-cover"
-      />
+      <div className="relative w-full h-48 sm:h-56 overflow-hidden rounded-t-xl bg-white p-6 group">
+        <Image
+          src={bebida.imagem}
+          alt={bebida.name}
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          className="object-contain transition-transform duration-500 ease-in-out group-hover:scale-105"
+          priority={false}
+        />
+      </div>
 
       <div className="p-4">
         <h3 className="text-lg font-semibold">{bebida.name}</h3>

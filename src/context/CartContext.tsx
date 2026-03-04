@@ -1,7 +1,7 @@
 // src/context/CartContext.tsx
 "use client";
 import { createContext, useContext, useState, useCallback } from "react";
-import type { PizzaItem } from "@/data/menu";
+import type { PizzaItem } from "@/data/menuData";
 
 export interface CartItem {
   id: number;            // id único do item no carrinho

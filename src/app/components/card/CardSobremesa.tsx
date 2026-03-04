@@ -13,14 +13,17 @@ export default function CardSobremesa({
 }: CardSobremesaProps) {
   return (
     <div className="border border-gray-200 rounded-xl bg-white p-5 shadow-md hover:shadow-xl transition-all duration-300 flex flex-col h-full  hover:bg-gray-50group">
-      <Image
-        src={sobremesa.imagem}
-        alt={sobremesa.name}
-        width={300}
-        height={200}
-        className="w-full h-48 border border-gray-200 rounded-t-lg object-cover"
-      />
-      
+      <div className="relative w-full h-48 overflow-hidden rounded-t-lg border-b border-gray-100 bg-white p-4 group">
+        <Image
+          src={sobremesa.imagem}
+          alt={sobremesa.name}
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          className="object-contain transition-transform duration-500 ease-in-out group-hover:scale-105"
+          priority={false}
+        />
+      </div>
+
       <div className="p-4">
         <h3 className="text-lg font-semibold">{sobremesa.name}</h3>
 
