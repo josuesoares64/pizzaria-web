@@ -1,3 +1,5 @@
+import Cookies from "js-cookie";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
 interface ApiError {
@@ -17,9 +19,11 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
+    const token = Cookies.get("token");
 
     const headers: HeadersInit = {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     };
 
@@ -37,6 +41,7 @@ class ApiClient {
       throw error;
     }
 
+    // 204 No Content não tem corpo pra parsear
     if (response.status === 204) {
       return {} as T;
     }
