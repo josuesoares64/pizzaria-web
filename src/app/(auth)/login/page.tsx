@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Cookies from "js-cookie";
 import { authService } from "@/server/auth.service";
 import { decodeToken } from "@/lib/jwt";
@@ -16,6 +16,7 @@ export default function LoginPage() {
 
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,6 +38,14 @@ export default function LoginPage() {
 
       if (usuario.role === "dono" || usuario.role === "funcionario") {
         router.push(`/dashboard/${usuario.role}`);
+        return;
+      }
+
+      const redirect = searchParams.get("redirect");
+      const produto = searchParams.get("produto");
+
+      if (redirect) {
+        router.push(produto ? `${redirect}?produto=${produto}` : redirect);
       } else {
         router.push("/");
       }
