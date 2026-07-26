@@ -24,11 +24,16 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const rotaProtegida = pathname.startsWith('/dashboard');
+  const rotaCliente = pathname.startsWith('/checkout') || pathname.startsWith('/pedidos');
   const rotaLogin = pathname === '/login';
 
-  // 1. Não logado tentando acessar rota protegida → login
-  if (rotaProtegida && !usuario) {
-    return NextResponse.redirect(new URL('/login', request.url));
+  // 1. Não logado tentando acessar rota protegida (dashboard, checkout, pedidos) → login
+  if ((rotaProtegida || rotaCliente) && !usuario) {
+    const loginUrl = new URL('/login', request.url);
+    if (rotaCliente) {
+      loginUrl.searchParams.set('redirect', pathname);
+    }
+    return NextResponse.redirect(loginUrl);
   }
 
   // 2. Logado, mas tentando acessar dashboard de outro role
@@ -55,5 +60,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login'],
+  matcher: ['/dashboard/:path*', '/login', '/checkout/:path*', '/pedidos/:path*'],
 };

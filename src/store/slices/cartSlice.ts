@@ -3,10 +3,12 @@ import { CartItem } from '@/types/carrinho';
 
 interface CartState {
   items: CartItem[];
+  pizzariaId: string | null;
 }
 
 const initialState: CartState = {
   items: [],
+  pizzariaId: null,
 };
 
 function gerarId(item: Pick<CartItem, 'produtoId' | 'produtoId2' | 'tamanhoId' | 'bordaId'>) {
@@ -41,11 +43,18 @@ const cartSlice = createSlice({
     clearCart: (state) => {
       state.items = [];
     },
-    hydrate: (state, action: PayloadAction<CartItem[]>) => {
-      state.items = action.payload;
+    // Restaura o último carrinho ativo (chamado no boot do app, pelo CartInitializer)
+    hydrate: (state, action: PayloadAction<{ pizzariaId: string | null; items: CartItem[] }>) => {
+      state.pizzariaId = action.payload.pizzariaId;
+      state.items = action.payload.items;
+    },
+    // Troca de carrinho quando o cliente entra em uma pizzaria diferente
+    trocarPizzaria: (state, action: PayloadAction<{ pizzariaId: string; items: CartItem[] }>) => {
+      state.pizzariaId = action.payload.pizzariaId;
+      state.items = action.payload.items;
     },
   },
 });
 
-export const { addItem, removeItem, updateQuantidade, clearCart, hydrate } = cartSlice.actions;
+export const { addItem, removeItem, updateQuantidade, clearCart, hydrate, trocarPizzaria } = cartSlice.actions;
 export default cartSlice.reducer;
