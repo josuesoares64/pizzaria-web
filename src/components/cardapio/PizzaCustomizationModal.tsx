@@ -10,6 +10,7 @@ interface PizzaCustomizationModalProps {
   produto: Produto;
   todasPizzas: Produto[];
   bordas: Borda[];
+  pizzariaId: string;
   aoFechar: () => void;
 }
 
@@ -17,7 +18,7 @@ function formatarPreco(valor: number) {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export function PizzaCustomizationModal({ produto, todasPizzas, bordas, aoFechar }: PizzaCustomizationModalProps) {
+export function PizzaCustomizationModal({ produto, todasPizzas, bordas, pizzariaId, aoFechar }: PizzaCustomizationModalProps) {
   const dispatch = useAppDispatch();
 
   const [modo, setModo] = useState<'inteira' | 'meio'>('inteira');
@@ -90,6 +91,7 @@ export function PizzaCustomizationModal({ produto, todasPizzas, bordas, aoFechar
 
     dispatch(
       addItem({
+        pizzariaId,
         produtoId: produto.id,
         produtoId2: modo === 'meio' ? segundoSaborId : undefined,
         nomeExibicao,

@@ -19,14 +19,21 @@ const cartSlice = createSlice({
   name: 'cart',
   initialState,
   reducers: {
-    addItem: (state, action: PayloadAction<Omit<CartItem, 'id'>>) => {
-      const id = gerarId(action.payload);
+    addItem: (state, action: PayloadAction<Omit<CartItem, 'id'> & { pizzariaId: string }>) => {
+      const { pizzariaId, ...itemData } = action.payload;
+
+      // Segurança: garante que o pizzariaId do carrinho está sempre sincronizado
+      if (state.pizzariaId !== pizzariaId) {
+        state.pizzariaId = pizzariaId;
+      }
+
+      const id = gerarId(itemData);
       const existente = state.items.find((item) => item.id === id);
 
       if (existente) {
-        existente.quantidade += action.payload.quantidade;
+        existente.quantidade += itemData.quantidade;
       } else {
-        state.items.push({ ...action.payload, id });
+        state.items.push({ ...itemData, id });
       }
     },
     removeItem: (state, action: PayloadAction<string>) => {

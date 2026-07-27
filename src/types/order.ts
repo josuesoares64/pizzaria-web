@@ -1,3 +1,5 @@
+import { Endereco } from './endereco';
+
 export type FormaPagamento = 'dinheiro' | 'pix' | 'cartao';
 
 export type StatusPedido =
@@ -25,20 +27,27 @@ export interface CriarPedidoInput {
   itens: OrderItemInput[];
 }
 
+interface RefNomeada {
+  id: string;
+  nome: string;
+}
+
 export interface OrderItem {
   id: string;
-  produto_id: string;
-  produto_id_2?: string;
-  tamanho_id?: string;
-  borda_id?: string;
+  produto: RefNomeada;
+  produtoSegundoSabor: RefNomeada | null;
+  tamanho: RefNomeada | null;
+  borda: RefNomeada | null;
   quantidade: number;
   observacoes?: string;
   preco_unitario: string;
+  subtotal: string;
 }
 
 export interface Order {
   id: string;
   pizzaria_id: string;
+  pizzaria: RefNomeada;
   forma_pagamento: FormaPagamento;
   status: StatusPedido;
   observacoes?: string;

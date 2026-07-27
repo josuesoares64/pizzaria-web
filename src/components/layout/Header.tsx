@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useAppSelector } from '@/store/hooks';
-import { CartDrawer } from './CartDrawer';
+import { CartDrawer } from '../cardapio/CartDrawer';
 
 export function Header() {
   const [carrinhoAberto, setCarrinhoAberto] = useState(false);

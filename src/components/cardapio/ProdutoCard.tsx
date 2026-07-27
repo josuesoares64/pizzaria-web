@@ -11,6 +11,7 @@ interface ProdutoCardProps {
   produto: Produto;
   todasPizzas: Produto[];
   bordas: Borda[];
+  pizzariaId: string;
   modalAberto: boolean;
   aoAbrirModal: () => void;
   aoFecharModal: () => void;
@@ -21,7 +22,7 @@ function formatarPreco(preco: string | number) {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export function ProdutoCard({ produto, todasPizzas, bordas, modalAberto, aoAbrirModal, aoFecharModal }: ProdutoCardProps) {
+export function ProdutoCard({ produto, todasPizzas, bordas, pizzariaId, modalAberto, aoAbrirModal, aoFecharModal }: ProdutoCardProps) {
   const router = useRouter();
   const pathname = usePathname();
   const dispatch = useAppDispatch();
@@ -42,6 +43,7 @@ export function ProdutoCard({ produto, todasPizzas, bordas, modalAberto, aoAbrir
 
     dispatch(
       addItem({
+        pizzariaId,
         produtoId: produto.id,
         nomeExibicao: produto.nome,
         precoUnitario: parseFloat(produto.preco ?? '0'),
@@ -79,7 +81,13 @@ export function ProdutoCard({ produto, todasPizzas, bordas, modalAberto, aoAbrir
       </div>
 
       {ehPizza && modalAberto && (
-        <PizzaCustomizationModal produto={produto} todasPizzas={todasPizzas} bordas={bordas} aoFechar={aoFecharModal} />
+        <PizzaCustomizationModal
+          produto={produto}
+          todasPizzas={todasPizzas}
+          bordas={bordas}
+          pizzariaId={pizzariaId}
+          aoFechar={aoFecharModal}
+        />
       )}
     </>
   );

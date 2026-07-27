@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { removeItem, updateQuantidade } from '@/store/slices/cartSlice';
 
@@ -14,8 +15,14 @@ function formatarPreco(valor: number) {
 
 export function CartDrawer({ aberto, aoFechar }: CartDrawerProps) {
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const items = useAppSelector((state) => state.cart.items);
   const total = items.reduce((soma, item) => soma + item.precoUnitario * item.quantidade, 0);
+
+  function irParaCheckout() {
+    aoFechar();
+    router.push('/checkout');
+  }
 
   return (
     <>
@@ -66,8 +73,12 @@ export function CartDrawer({ aberto, aoFechar }: CartDrawerProps) {
             <span className="font-medium">Total</span>
             <span className="font-bold">{formatarPreco(total)}</span>
           </div>
-          <button disabled title="Em breve" className="w-full bg-gray-300 text-gray-500 font-semibold py-3 rounded-lg cursor-not-allowed">
-            Finalizar compra (em breve)
+          <button
+            onClick={irParaCheckout}
+            disabled={items.length === 0}
+            className="w-full bg-red-600 text-white font-semibold py-3 rounded-lg disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed hover:bg-red-700 transition-colors"
+          >
+            Finalizar compra
           </button>
         </div>
       </aside>
