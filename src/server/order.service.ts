@@ -1,4 +1,4 @@
-import { CriarPedidoInput, Order } from "@/types/order";
+import { CriarPedidoInput, Order, StatusPedido } from "@/types/order";
 import { api } from "./api";
 
 export const orderService = {
@@ -8,5 +8,13 @@ export const orderService = {
 
   listarMeusPedidos(): Promise<Order[]> {
     return api.get<Order[]>("/orders/me");
+  },
+
+  listarPedidosPizzaria(): Promise<Order[]> {
+    return api.get<Order[]>("/orders");
+  },
+
+  atualizarStatus(orderId: string, status: StatusPedido): Promise<Order> {
+    return api.patch<Order>(`/orders/${orderId}/status`, { status });
   },
 };

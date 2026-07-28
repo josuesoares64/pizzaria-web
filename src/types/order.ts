@@ -32,6 +32,12 @@ interface RefNomeada {
   nome: string;
 }
 
+interface ClienteResumo {
+  id: string;
+  nome: string;
+  telefone: string;
+}
+
 export interface OrderItem {
   id: string;
   produto: RefNomeada;
@@ -48,6 +54,7 @@ export interface Order {
   id: string;
   pizzaria_id: string;
   pizzaria: RefNomeada;
+  cliente?: ClienteResumo; // só vem preenchido em GET /orders (dono/funcionario), não em GET /orders/me
   forma_pagamento: FormaPagamento;
   status: StatusPedido;
   observacoes?: string;
