@@ -5,25 +5,20 @@ import { usePathname } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 
 const NAV_ITEMS = [
-  { href: "/dashboard/dono/pedidos", label: "Pedidos" },
-  { href: "/dashboard/dono/cardapio", label: "Cardápio" },
-  { href: "/dashboard/dono/tamanhos-e-bordas", label: "Tamanhos e bordas" },
-  { href: "/dashboard/dono/configuracoes", label: "Configurações" },
+  { href: "/dashboard/funcionario/pedidos", label: "Pedidos" },
+  { href: "/dashboard/funcionario/cardapio", label: "Cardápio" },
 ];
 
-export default function DonoLayout({ children }: { children: ReactNode }) {
+export default function FuncionarioLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [menuAberto, setMenuAberto] = useState(false);
 
-  // Fecha o menu automaticamente ao trocar de página (evita ficar
-  // aberto por cima do conteúdo depois de navegar no mobile)
   useEffect(() => {
     setMenuAberto(false);
   }, [pathname]);
 
   return (
     <div className="flex min-h-screen bg-neutral-50">
-      {/* Barra superior — só aparece no mobile */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 py-3 bg-white border-b border-neutral-200">
         <span className="text-base font-semibold tracking-tight text-red-600">
           Bella Pizza
@@ -41,7 +36,6 @@ export default function DonoLayout({ children }: { children: ReactNode }) {
         </button>
       </div>
 
-      {/* Backdrop escuro atrás do menu mobile aberto */}
       {menuAberto && (
         <div
           onClick={() => setMenuAberto(false)}
@@ -49,7 +43,6 @@ export default function DonoLayout({ children }: { children: ReactNode }) {
         />
       )}
 
-      {/* Sidebar — drawer deslizante no mobile, fixa no desktop */}
       <aside
         className={`w-60 shrink-0 border-r border-neutral-200 bg-white
           fixed md:static inset-y-0 left-0 z-50
@@ -61,7 +54,7 @@ export default function DonoLayout({ children }: { children: ReactNode }) {
             <span className="text-lg font-semibold tracking-tight text-red-600">
               Bella Pizza
             </span>
-            <p className="text-xs text-neutral-400 mt-0.5">Painel do dono</p>
+            <p className="text-xs text-neutral-400 mt-0.5">Painel do funcionário</p>
           </div>
           <button
             onClick={() => setMenuAberto(false)}

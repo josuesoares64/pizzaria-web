@@ -1,7 +1,10 @@
-import { Produto } from "./produto";
-
 export interface Categoria {
     id: string;
     nome: string;
-    produtos: Produto[];
+    ativo: boolean;
+}
+
+export interface CategoriaInput {
+    nome: string;
+    ativo?: boolean;
 }
