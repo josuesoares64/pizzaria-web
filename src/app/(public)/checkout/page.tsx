@@ -31,6 +31,7 @@ export default function CheckoutPage() {
 
   const [endereco, setEndereco] = useState<Endereco>(enderecoVazio);
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>('pix');
+  const [trocoPara, setTrocoPara] = useState('');
   const [observacoes, setObservacoes] = useState('');
 
   const [carregandoEndereco, setCarregandoEndereco] = useState(true);
@@ -57,12 +58,16 @@ export default function CheckoutPage() {
     setEndereco((prev) => ({ ...prev, [campo]: valor }));
   }
 
+  function handleTrocarFormaPagamento(forma: FormaPagamento) {
+    setFormaPagamento(forma);
+    if (forma !== 'dinheiro') {
+      setTrocoPara('');
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErro('');
-
-    // DEBUG temporário — pode remover depois de confirmar a causa
-    console.log('[checkout] submit disparado', { pizzariaId, itemsLength: items.length, endereco });
 
     if (!pizzariaId) {
       setErro('Não foi possível identificar a pizzaria do carrinho. Volte ao cardápio e tente novamente.');
@@ -79,6 +84,11 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (formaPagamento === 'dinheiro' && trocoPara && Number(trocoPara) < total) {
+      setErro('O valor do troco não pode ser menor que o total do pedido.');
+      return;
+    }
+
     setEnviando(true);
 
     try {
@@ -87,6 +97,7 @@ export default function CheckoutPage() {
       await orderService.criarPedido({
         pizzaria_id: pizzariaId,
         forma_pagamento: formaPagamento,
+        troco_para: formaPagamento === 'dinheiro' && trocoPara ? Number(trocoPara) : undefined,
         observacoes: observacoes || undefined,
         endereco,
         itens: items.map((item) => ({
@@ -210,7 +221,7 @@ export default function CheckoutPage() {
               <button
                 type="button"
                 key={forma}
-                onClick={() => setFormaPagamento(forma)}
+                onClick={() => handleTrocarFormaPagamento(forma)}
                 className={`flex-1 border rounded-lg py-2 text-sm font-medium capitalize transition-colors ${
                   formaPagamento === forma
                     ? 'bg-red-600 text-white border-red-600'
@@ -221,6 +232,28 @@ export default function CheckoutPage() {
               </button>
             ))}
           </div>
+
+          {formaPagamento === 'dinheiro' && (
+            <div className="mt-3">
+              <label className="block text-sm text-gray-600 mb-1">
+                Troco para quanto? (opcional)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder="Deixe em branco se não precisar de troco"
+                value={trocoPara}
+                onChange={(e) => setTrocoPara(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+              {trocoPara && Number(trocoPara) < total && (
+                <p className="text-xs text-red-600 mt-1">
+                  O valor informado é menor que o total do pedido ({formatarPreco(total)}).
+                </p>
+              )}
+            </div>
+          )}
         </section>
 
         {/* Observações */}
@@ -229,7 +262,7 @@ export default function CheckoutPage() {
           <textarea
             value={observacoes}
             onChange={(e) => setObservacoes(e.target.value)}
-            placeholder="Ex: sem cebola, troco para R$50..."
+            placeholder="Ex: sem cebola..."
             rows={3}
             className="w-full border rounded-lg px-3 py-2 text-sm resize-none"
           />

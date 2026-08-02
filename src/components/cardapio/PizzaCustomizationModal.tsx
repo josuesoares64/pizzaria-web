@@ -69,7 +69,7 @@ export function PizzaCustomizationModal({ produto, todasPizzas, bordas, pizzaria
       modo === 'meio' && tamanhoSelecionado.precoSegundo !== undefined
         ? (tamanhoSelecionado.preco + tamanhoSelecionado.precoSegundo) / 2
         : tamanhoSelecionado.preco;
-    const precoBorda = bordaSelecionada ? parseFloat(bordaSelecionada.preco) : 0;
+        const precoBorda = bordaSelecionada ? bordaSelecionada.preco : 0;
     return precoBase + precoBorda;
   }, [tamanhoSelecionado, bordaSelecionada, modo]);
 
@@ -196,7 +196,7 @@ export function PizzaCustomizationModal({ produto, todasPizzas, bordas, pizzaria
                   onClick={() => setBordaId(b.id)}
                   className={`px-4 py-2 rounded-lg text-sm border ${bordaId === b.id ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-700 border-gray-300'}`}
                 >
-                  {b.nome} (+{formatarPreco(parseFloat(b.preco))})
+                  {b.nome} (+{formatarPreco((b.preco))})
                 </button>
               ))}
             </div>

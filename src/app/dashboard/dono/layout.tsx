@@ -7,7 +7,8 @@ import { ReactNode, useEffect, useState } from "react";
 const NAV_ITEMS = [
   { href: "/dashboard/dono/pedidos", label: "Pedidos" },
   { href: "/dashboard/dono/cardapio", label: "Cardápio" },
-  { href: "/dashboard/dono/tamanhos-e-bordas", label: "Tamanhos e bordas" },
+  { href: "/dashboard/dono/funcionarios", label: "Funcionários" },
+  { href: "/dashboard/dono/tamanhos-bordas", label: "Tamanhos e bordas" },
   { href: "/dashboard/dono/configuracoes", label: "Configurações" },
 ];
 
@@ -15,15 +16,12 @@ export default function DonoLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [menuAberto, setMenuAberto] = useState(false);
 
-  // Fecha o menu automaticamente ao trocar de página (evita ficar
-  // aberto por cima do conteúdo depois de navegar no mobile)
   useEffect(() => {
     setMenuAberto(false);
   }, [pathname]);
 
   return (
     <div className="flex min-h-screen bg-neutral-50">
-      {/* Barra superior — só aparece no mobile */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 py-3 bg-white border-b border-neutral-200">
         <span className="text-base font-semibold tracking-tight text-red-600">
           Bella Pizza

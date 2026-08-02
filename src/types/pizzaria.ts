@@ -1,5 +1,10 @@
 import { Categoria } from "./categoria";
 import { Borda } from "./borda";
+import { Produto } from "./produto";
+
+export interface CategoriaComProdutos extends Categoria {
+    produtos: Produto[];
+}
 
 export interface PizzariaResumo {
     id: string;
@@ -11,6 +16,11 @@ export interface PizzariaResumo {
 }
 
 export interface PizzariaDetalhe extends PizzariaResumo {
-    categorias: Categoria[];
+    categorias: CategoriaComProdutos[];
     bordas: Borda[];
+}
+
+export interface PizzariaMe extends PizzariaResumo {
+    plano: string;
+    bloqueado: boolean;
 }

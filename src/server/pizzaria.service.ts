@@ -1,4 +1,4 @@
-import { PizzariaDetalhe, PizzariaResumo } from "@/types/pizzaria";
+import { PizzariaDetalhe, PizzariaMe, PizzariaResumo } from "@/types/pizzaria";
 import { api } from "./api"
 
 export const pizzariaService = {
@@ -8,5 +8,13 @@ export const pizzariaService = {
 
     buscarPorSlug(slug: string): Promise<PizzariaDetalhe> {
         return api.get<PizzariaDetalhe>(`/pizzarias/${slug}`);
+    },
+
+    getMe(): Promise<PizzariaMe> {
+        return api.get<PizzariaMe>("/pizzarias/me");
+    },
+
+    atualizar(dados: Partial<Pick<PizzariaMe, "nome" | "slug" | "telefone" | "endereco">>): Promise<PizzariaMe> {
+        return api.patch<PizzariaMe>("/pizzarias/me", dados);
     },
 }

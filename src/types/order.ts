@@ -22,6 +22,7 @@ export interface OrderItemInput {
 export interface CriarPedidoInput {
   pizzaria_id: string;
   forma_pagamento: FormaPagamento;
+  troco_para?: number;
   observacoes?: string;
   endereco: Endereco;
   itens: OrderItemInput[];
@@ -54,8 +55,9 @@ export interface Order {
   id: string;
   pizzaria_id: string;
   pizzaria: RefNomeada;
-  cliente?: ClienteResumo; // só vem preenchido em GET /orders (dono/funcionario), não em GET /orders/me
+  cliente?: ClienteResumo;
   forma_pagamento: FormaPagamento;
+  troco_para?: string;
   status: StatusPedido;
   observacoes?: string;
   endereco_cep: string;

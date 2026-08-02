@@ -28,9 +28,10 @@ const FORMA_PAGAMENTO_LABEL: Record<string, string> = {
 
 const POLLING_MS = 20000;
 
-// Kanban de pedidos compartilhado entre dono e funcionário — ambos têm o
-// mesmo acesso no backend (ver + mudar status via checkPizzariaVinculo),
-// então a UI é idêntica pros dois papéis.
+function formatarMoeda(valor: number) {
+  return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
 export default function PedidosKanban() {
   const [pedidos, setPedidos] = useState<Order[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -169,6 +170,18 @@ function PedidoCard({
     minute: "2-digit",
   });
 
+  const totalNumero = Number(pedido.total);
+  const trocoParaNumero = pedido.troco_para ? Number(pedido.troco_para) : null;
+
+  const enderecoCompleto = [
+    `${pedido.endereco_rua}, ${pedido.endereco_numero}`,
+    pedido.endereco_bairro,
+    pedido.endereco_complemento,
+    pedido.endereco_referencia ? `Ref: ${pedido.endereco_referencia}` : null,
+  ]
+    .filter(Boolean)
+    .join(" — ");
+
   return (
     <div className={`bg-white rounded-lg border-l-4 ${corBorda} border border-neutral-200 shadow-sm p-3`}>
       <div className="flex items-start justify-between mb-1.5">
@@ -181,41 +194,74 @@ function PedidoCard({
         <span className="text-xs text-neutral-400">{horario}</span>
       </div>
 
-      <ul className="text-xs text-neutral-600 mb-2 space-y-0.5">
-        {pedido.itens.map((item) => (
-          <li key={item.id}>
-            {item.quantidade}x {item.produto.nome}
-            {item.produtoSegundoSabor ? ` / ${item.produtoSegundoSabor.nome}` : ""}
-            {item.tamanho ? ` (${item.tamanho.nome})` : ""}
-          </li>
-        ))}
-      </ul>
-
-      <p className="text-xs text-neutral-500 mb-2">
-        {pedido.endereco_rua}, {pedido.endereco_numero} — {pedido.endereco_bairro}
-      </p>
-
-      <div className="flex items-center justify-between">
-        <div>
-          <span className="text-sm font-semibold text-neutral-800">
-            R$ {Number(pedido.total).toFixed(2).replace(".", ",")}
-          </span>
-          <span className="text-xs text-neutral-400 ml-2">
-            {FORMA_PAGAMENTO_LABEL[pedido.forma_pagamento]}
-          </span>
-        </div>
-        <select
-          value={pedido.status}
-          onChange={(e) => onMudarStatus(pedido.id, e.target.value as StatusPedido)}
-          className="text-xs border border-neutral-200 rounded-md px-2 py-1 bg-white"
-        >
-          {STATUS_OPCOES.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
+      <div className="mb-2 pb-2 border-b border-neutral-100">
+        <p className="text-xs font-medium text-neutral-500 mb-1">
+          {pedido.itens.length} {pedido.itens.length === 1 ? "item" : "itens"}
+        </p>
+        <ul className="text-xs text-neutral-600 space-y-1">
+          {pedido.itens.map((item) => (
+            <li key={item.id} className="flex gap-1.5">
+              <span className="font-semibold text-neutral-800 shrink-0">{item.quantidade}x</span>
+              <span>
+                {item.produto.nome}
+                {item.produtoSegundoSabor ? ` / ${item.produtoSegundoSabor.nome}` : ""}
+                {item.tamanho ? ` (${item.tamanho.nome})` : ""}
+                {item.borda ? ` + borda ${item.borda.nome}` : ""}
+              </span>
+            </li>
           ))}
-        </select>
+        </ul>
       </div>
+
+      {pedido.observacoes && (
+        <div className="mb-2 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5">
+          <p className="text-xs text-amber-800">
+            <span className="font-semibold">Obs:</span> {pedido.observacoes}
+          </p>
+        </div>
+      )}
+
+      <p className="text-xs text-neutral-500 mb-2">📍 {enderecoCompleto}</p>
+
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-semibold text-neutral-800">
+          {formatarMoeda(totalNumero)}
+        </span>
+        <span className="text-xs font-medium text-neutral-500 bg-neutral-100 rounded-full px-2 py-0.5">
+          {FORMA_PAGAMENTO_LABEL[pedido.forma_pagamento]}
+        </span>
+      </div>
+
+      {pedido.forma_pagamento === "dinheiro" && (
+        <div
+          className={`mb-2 rounded-md px-2 py-1.5 text-xs ${
+            trocoParaNumero
+              ? "bg-red-50 border border-red-100 text-red-700"
+              : "bg-green-50 border border-green-100 text-green-700"
+          }`}
+        >
+          {trocoParaNumero ? (
+            <>
+              💵 Troco para {formatarMoeda(trocoParaNumero)} — levar{" "}
+              <span className="font-semibold">{formatarMoeda(trocoParaNumero - totalNumero)}</span> de troco
+            </>
+          ) : (
+            "💵 Não precisa de troco"
+          )}
+        </div>
+      )}
+
+      <select
+        value={pedido.status}
+        onChange={(e) => onMudarStatus(pedido.id, e.target.value as StatusPedido)}
+        className="w-full text-xs border border-neutral-200 rounded-md px-2 py-1.5 bg-white"
+      >
+        {STATUS_OPCOES.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

@@ -5,6 +5,13 @@ import { categoriaService } from "@/server/categoria.service";
 import { produtoService } from "@/server/produto.service";
 import { Categoria } from "@/types/categoria";
 import { Produto, TipoProduto } from "@/types/produto";
+import Link from "next/link";
+
+function pizzaSemPreco(produto: Produto): boolean {
+  if (produto.tipo !== "pizza") return false;
+  if (!produto.precos || produto.precos.length === 0) return true;
+  return produto.precos.every((p) => p.preco === null || p.preco === "");
+}
 
 function Toggle({
   checked,
@@ -32,8 +39,6 @@ function Toggle({
   );
 }
 
-// Casca genérica de modal — mesmo padrão visual do PizzaCustomizationModal
-// (header com border-b, cor de marca vermelha, overlay escuro)
 function ModalShell({
   titulo,
   onFechar,
@@ -48,7 +53,10 @@ function ModalShell({
       <div className="bg-white rounded-lg w-full max-w-sm">
         <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-100">
           <h2 className="text-sm font-semibold text-neutral-800">{titulo}</h2>
-          <button onClick={onFechar} className="text-neutral-400 hover:text-neutral-600 text-lg leading-none">
+          <button
+            onClick={onFechar}
+            className="text-neutral-400 hover:text-neutral-600 text-lg leading-none"
+          >
             ×
           </button>
         </div>
@@ -75,10 +83,15 @@ function EditarCategoriaModal({
     if (!nome.trim()) return;
     setEnviando(true);
     try {
-      const atualizada = await categoriaService.atualizar(categoria.id, { nome, ativo: categoria.ativo });
+      const atualizada = await categoriaService.atualizar(categoria.id, {
+        nome,
+        ativo: categoria.ativo,
+      });
       onSalvo(atualizada);
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não foi possível salvar a categoria.");
+      setErro(
+        e instanceof Error ? e.message : "Não foi possível salvar a categoria.",
+      );
     } finally {
       setEnviando(false);
     }
@@ -132,12 +145,17 @@ function EditarProdutoModal({
       const atualizado = await produtoService.atualizar(produto.id, {
         nome,
         descricao: descricao || undefined,
-        preco: produto.tipo === "simples" && preco !== "" ? Number(preco) : undefined,
+        preco:
+          produto.tipo === "simples" && preco !== ""
+            ? Number(preco)
+            : undefined,
         imagem_url: imagemUrl || undefined,
       });
       onSalvo(atualizado);
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não foi possível salvar o produto.");
+      setErro(
+        e instanceof Error ? e.message : "Não foi possível salvar o produto.",
+      );
     } finally {
       setEnviando(false);
     }
@@ -169,9 +187,12 @@ function EditarProdutoModal({
         />
       )}
       {produto.tipo === "pizza" && (
-        <p className="text-xs text-neutral-400">
-          Preços por tamanho são editados em &quot;Definir preços&quot;.
-        </p>
+        <Link
+          href={`/dashboard/dono/produtos/${produto.id}/precos`}
+          className="text-xs font-medium text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 rounded-md px-3 py-1.5 text-center"
+        >
+          Definir preços →
+        </Link>
       )}
       <input
         value={imagemUrl}
@@ -202,9 +223,13 @@ export default function CardapioPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [expandida, setExpandida] = useState<string | null>(null);
   const [novaCategoriaNome, setNovaCategoriaNome] = useState("");
-  const [produtoFormAberto, setProdutoFormAberto] = useState<string | null>(null); // categoria_id
+  const [produtoFormAberto, setProdutoFormAberto] = useState<string | null>(
+    null,
+  ); // categoria_id
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
-  const [editandoCategoria, setEditandoCategoria] = useState<Categoria | null>(null);
+  const [editandoCategoria, setEditandoCategoria] = useState<Categoria | null>(
+    null,
+  );
   const [editandoProduto, setEditandoProduto] = useState<Produto | null>(null);
 
   const carregar = useCallback(async () => {
@@ -231,7 +256,10 @@ export default function CardapioPage() {
   async function handleCriarCategoria() {
     if (!novaCategoriaNome.trim()) return;
     try {
-      const nova = await categoriaService.criar({ nome: novaCategoriaNome, ativo: true });
+      const nova = await categoriaService.criar({
+        nome: novaCategoriaNome,
+        ativo: true,
+      });
       setCategorias((prev) => [...prev, nova]);
       setNovaCategoriaNome("");
     } catch {
@@ -242,7 +270,7 @@ export default function CardapioPage() {
   async function handleToggleCategoria(categoria: Categoria) {
     const anterior = categorias;
     setCategorias((prev) =>
-      prev.map((c) => (c.id === categoria.id ? { ...c, ativo: !c.ativo } : c))
+      prev.map((c) => (c.id === categoria.id ? { ...c, ativo: !c.ativo } : c)),
     );
     try {
       await categoriaService.atualizarStatus(categoria.id, !categoria.ativo);
@@ -255,7 +283,9 @@ export default function CardapioPage() {
   async function handleToggleDisponivel(produto: Produto) {
     const anterior = produtos;
     setProdutos((prev) =>
-      prev.map((p) => (p.id === produto.id ? { ...p, disponivel: !p.disponivel } : p))
+      prev.map((p) =>
+        p.id === produto.id ? { ...p, disponivel: !p.disponivel } : p,
+      ),
     );
     try {
       await produtoService.atualizarStatus(produto.id, !produto.disponivel);
@@ -266,7 +296,9 @@ export default function CardapioPage() {
   }
 
   async function handleExcluirProduto(produto: Produto) {
-    const confirmado = window.confirm(`Excluir "${produto.nome}"? Essa ação não pode ser desfeita.`);
+    const confirmado = window.confirm(
+      `Excluir "${produto.nome}"? Essa ação não pode ser desfeita.`,
+    );
     if (!confirmado) return;
 
     const anterior = produtos;
@@ -282,7 +314,8 @@ export default function CardapioPage() {
     }
   }
 
-  if (carregando) return <p className="text-sm text-neutral-500">Carregando cardápio...</p>;
+  if (carregando)
+    return <p className="text-sm text-neutral-500">Carregando cardápio...</p>;
 
   return (
     <div className="max-w-3xl">
@@ -311,22 +344,38 @@ export default function CardapioPage() {
 
       <div className="flex flex-col gap-2">
         {categorias.map((categoria) => {
-          const produtosDaCategoria = produtos.filter((p) => p.categoria_id === categoria.id);
+          const produtosDaCategoria = produtos.filter(
+            (p) => p.categoria_id === categoria.id,
+          );
           const aberta = expandida === categoria.id;
 
           return (
-            <div key={categoria.id} className="border border-neutral-200 rounded-lg bg-white">
+            <div
+              key={categoria.id}
+              className="border border-neutral-200 rounded-lg bg-white"
+            >
               <div
                 className="flex items-center justify-between px-4 py-3 cursor-pointer"
                 onClick={() => setExpandida(aberta ? null : categoria.id)}
               >
                 <div className="flex items-center gap-2">
-                  <span className={`text-sm ${aberta ? "rotate-90" : ""} transition-transform`}>▸</span>
-                  <span className="text-sm font-medium text-neutral-800">{categoria.nome}</span>
-                  <span className="text-xs text-neutral-400">({produtosDaCategoria.length})</span>
+                  <span
+                    className={`text-sm ${aberta ? "rotate-90" : ""} transition-transform`}
+                  >
+                    ▸
+                  </span>
+                  <span className="text-sm font-medium text-neutral-800">
+                    {categoria.nome}
+                  </span>
+                  <span className="text-xs text-neutral-400">
+                    ({produtosDaCategoria.length})
+                  </span>
                 </div>
 
-                <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                <div
+                  className="flex items-center gap-3"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <button
                     onClick={() => setEditandoCategoria(categoria)}
                     className="text-xs text-neutral-400 hover:text-red-600"
@@ -335,7 +384,10 @@ export default function CardapioPage() {
                   </button>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-neutral-500">Ativa</span>
-                    <Toggle checked={categoria.ativo} onChange={() => handleToggleCategoria(categoria)} />
+                    <Toggle
+                      checked={categoria.ativo}
+                      onChange={() => handleToggleCategoria(categoria)}
+                    />
                   </div>
                 </div>
               </div>
@@ -343,7 +395,9 @@ export default function CardapioPage() {
               {aberta && (
                 <div className="border-t border-neutral-100 px-4 py-3">
                   {produtosDaCategoria.length === 0 && (
-                    <p className="text-xs text-neutral-400 mb-2">Nenhum produto nessa categoria ainda.</p>
+                    <p className="text-xs text-neutral-400 mb-2">
+                      Nenhum produto nessa categoria ainda.
+                    </p>
                   )}
                   <div className="flex flex-col gap-2 mb-3">
                     {produtosDaCategoria.map((produto) => (
@@ -352,22 +406,43 @@ export default function CardapioPage() {
                         className="flex items-center justify-between text-sm border border-neutral-100 rounded-md px-3 py-2"
                       >
                         <div>
-                          <span className="font-medium text-neutral-800">{produto.nome}</span>
+                          <span className="font-medium text-neutral-800">
+                            {produto.nome}
+                          </span>
                           <span className="text-xs text-neutral-400 ml-2">
                             {produto.tipo === "pizza" ? "Pizza" : "Simples"}
                           </span>
                           {produto.tipo === "simples" && produto.preco && (
                             <span className="text-xs text-neutral-500 ml-2">
-                              R$ {Number(produto.preco).toFixed(2).replace(".", ",")}
+                              R${" "}
+                              {Number(produto.preco)
+                                .toFixed(2)
+                                .replace(".", ",")}
+                            </span>
+                          )}
+                          {pizzaSemPreco(produto) && (
+                            <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-1.5 py-0.5 ml-2">
+                              ⚠ Sem preço definido
                             </span>
                           )}
                         </div>
                         <div className="flex items-center gap-3">
                           {produto.tipo === "pizza" && (
-                            <span className="text-xs text-red-600">Definir preços →</span>
+                            <Link
+                              href={`/dashboard/dono/produtos/${produto.id}/precos`}
+                              className={
+                                pizzaSemPreco(produto)
+                                  ? "text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-md px-2.5 py-1"
+                                  : "text-xs font-medium text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 rounded-md px-2.5 py-1"
+                              }
+                            >
+                              Definir preços →
+                            </Link>
                           )}
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-neutral-500">Disponível</span>
+                            <span className="text-xs text-neutral-500">
+                              Disponível
+                            </span>
                             <Toggle
                               checked={produto.disponivel}
                               onChange={() => handleToggleDisponivel(produto)}
@@ -420,7 +495,9 @@ export default function CardapioPage() {
         <EditarCategoriaModal
           categoria={editandoCategoria}
           onSalvo={(atualizada) => {
-            setCategorias((prev) => prev.map((c) => (c.id === atualizada.id ? atualizada : c)));
+            setCategorias((prev) =>
+              prev.map((c) => (c.id === atualizada.id ? atualizada : c)),
+            );
             setEditandoCategoria(null);
           }}
           onFechar={() => setEditandoCategoria(null)}
@@ -431,7 +508,9 @@ export default function CardapioPage() {
         <EditarProdutoModal
           produto={editandoProduto}
           onSalvo={(atualizado) => {
-            setProdutos((prev) => prev.map((p) => (p.id === atualizado.id ? atualizado : p)));
+            setProdutos((prev) =>
+              prev.map((p) => (p.id === atualizado.id ? atualizado : p)),
+            );
             setEditandoProduto(null);
           }}
           onFechar={() => setEditandoProduto(null)}
@@ -451,6 +530,7 @@ function NovoProdutoForm({
   onCancelar: () => void;
 }) {
   const [nome, setNome] = useState("");
+  const [descricao, setDescricao] = useState("");
   const [tipo, setTipo] = useState<TipoProduto>("simples");
   const [preco, setPreco] = useState("");
   const [erro, setErro] = useState<string | null>(null);
@@ -462,13 +542,16 @@ function NovoProdutoForm({
     try {
       const novo = await produtoService.criar({
         nome,
+        descricao: descricao || undefined,
         tipo,
         categoria_id: categoriaId,
         preco: tipo === "simples" ? Number(preco) : undefined,
       });
       onCriado(novo);
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não foi possível criar o produto.");
+      setErro(
+        e instanceof Error ? e.message : "Não foi possível criar o produto.",
+      );
     } finally {
       setEnviando(false);
     }
@@ -481,6 +564,12 @@ function NovoProdutoForm({
         value={nome}
         onChange={(e) => setNome(e.target.value)}
         placeholder="Nome do produto"
+        className="border border-neutral-200 rounded-md px-2 py-1.5 text-sm"
+      />
+      <input
+        value={descricao}
+        onChange={(e) => setDescricao(e.target.value)}
+        placeholder="Descrição (opcional)"
         className="border border-neutral-200 rounded-md px-2 py-1.5 text-sm"
       />
       <select

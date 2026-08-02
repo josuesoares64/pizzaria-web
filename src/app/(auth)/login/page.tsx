@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Cookies from "js-cookie";
 import { authService } from "@/server/auth.service";
@@ -8,7 +8,7 @@ import { decodeToken } from "@/lib/jwt";
 import { useAppDispatch } from "@/store/hooks";
 import { login } from "@/store/slices/authSlice";
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState("");
@@ -91,5 +91,13 @@ export default function LoginPage() {
         {carregando ? "Entrando..." : "Entrar"}
       </button>
     </form>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }

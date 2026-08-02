@@ -7,6 +7,7 @@ import { ReactNode, useEffect, useState } from "react";
 const NAV_ITEMS = [
   { href: "/dashboard/funcionario/pedidos", label: "Pedidos" },
   { href: "/dashboard/funcionario/cardapio", label: "Cardápio" },
+  { href: "/dashboard/funcionario/tamanhos-bordas", label: "tamanhos e bordas" },
 ];
 
 export default function FuncionarioLayout({ children }: { children: ReactNode }) {

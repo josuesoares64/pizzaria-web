@@ -3,3 +3,7 @@ export interface Tamanho {
   nome: string;
   ordem: number;
 }
+
+export interface TamanhoInput {
+  nome: string;
+}
