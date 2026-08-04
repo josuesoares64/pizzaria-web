@@ -17,4 +17,10 @@ export const pizzariaService = {
     atualizar(dados: Partial<Pick<PizzariaMe, "nome" | "slug" | "telefone" | "endereco">>): Promise<PizzariaMe> {
         return api.patch<PizzariaMe>("/pizzarias/me", dados);
     },
+
+    uploadLogo(file: File) {
+        const formData = new FormData();
+        formData.append("logo", file);
+        return api.patchForm<PizzariaMe>("/pizzarias/me/logo", formData);
+    },
 }

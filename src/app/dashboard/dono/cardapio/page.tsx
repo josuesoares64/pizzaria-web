@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { categoriaService } from "@/server/categoria.service";
 import { produtoService } from "@/server/produto.service";
 import { Categoria } from "@/types/categoria";
@@ -137,6 +137,8 @@ function EditarProdutoModal({
   const [imagemUrl, setImagemUrl] = useState(produto.imagem_url ?? "");
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [enviandoImagem, setEnviandoImagem] = useState(false);
+  const inputImagemRef = useRef<HTMLInputElement>(null);
 
   async function handleSalvar() {
     if (!nome.trim()) return;
@@ -149,7 +151,6 @@ function EditarProdutoModal({
           produto.tipo === "simples" && preco !== ""
             ? Number(preco)
             : undefined,
-        imagem_url: imagemUrl || undefined,
       });
       onSalvo(atualizado);
     } catch (e) {
@@ -161,9 +162,64 @@ function EditarProdutoModal({
     }
   }
 
+  async function handleSelecionarImagem(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setEnviandoImagem(true);
+    setErro(null);
+    try {
+      const atualizado = await produtoService.uploadImagem(produto.id, file);
+      setImagemUrl(atualizado.imagem_url ?? "");
+      onSalvo(atualizado);
+    } catch (e) {
+      setErro(
+        e instanceof Error ? e.message : "Não foi possível enviar a imagem.",
+      );
+    } finally {
+      setEnviandoImagem(false);
+    }
+  }
+
   return (
     <ModalShell titulo="Editar produto" onFechar={onFechar}>
       {erro && <p className="text-xs text-red-600">{erro}</p>}
+
+      <div className="flex items-center gap-3">
+        <div className="w-16 h-16 rounded-md border border-neutral-200 bg-neutral-50 flex items-center justify-center overflow-hidden shrink-0">
+          {imagemUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imagemUrl}
+              alt={produto.nome}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <span className="text-[10px] text-neutral-400 text-center px-1">
+              Sem foto
+            </span>
+          )}
+        </div>
+        <div>
+          <input
+            ref={inputImagemRef}
+            type="file"
+            accept="image/*"
+            onChange={handleSelecionarImagem}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => inputImagemRef.current?.click()}
+            disabled={enviandoImagem}
+            className="text-xs font-medium text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-50 rounded-md px-2.5 py-1.5"
+          >
+            {enviandoImagem ? "Enviando..." : "Alterar foto"}
+          </button>
+        </div>
+      </div>
+
       <input
         value={nome}
         onChange={(e) => setNome(e.target.value)}
@@ -194,12 +250,6 @@ function EditarProdutoModal({
           Definir preços →
         </Link>
       )}
-      <input
-        value={imagemUrl}
-        onChange={(e) => setImagemUrl(e.target.value)}
-        placeholder="URL da imagem (opcional)"
-        className="border border-neutral-200 rounded-md px-2 py-1.5 text-sm"
-      />
       <div className="flex gap-2 mt-1">
         <button
           onClick={handleSalvar}
@@ -482,6 +532,7 @@ export default function CardapioPage() {
                         setProdutoFormAberto(null);
                       }}
                       onCancelar={() => setProdutoFormAberto(null)}
+                      onAvisoImagem={(mensagem) => setErro(mensagem)}
                     />
                   )}
                 </div>
@@ -511,7 +562,7 @@ export default function CardapioPage() {
             setProdutos((prev) =>
               prev.map((p) => (p.id === atualizado.id ? atualizado : p)),
             );
-            setEditandoProduto(null);
+            setEditandoProduto(atualizado);
           }}
           onFechar={() => setEditandoProduto(null)}
         />
@@ -524,21 +575,35 @@ function NovoProdutoForm({
   categoriaId,
   onCriado,
   onCancelar,
+  onAvisoImagem,
 }: {
   categoriaId: string;
   onCriado: (produto: Produto) => void;
   onCancelar: () => void;
+  onAvisoImagem: (mensagem: string) => void;
 }) {
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
   const [tipo, setTipo] = useState<TipoProduto>("simples");
   const [preco, setPreco] = useState("");
+  const [imagem, setImagem] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const inputImagemRef = useRef<HTMLInputElement>(null);
+
+  function handleSelecionarImagem(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setImagem(file);
+    setPreviewUrl(URL.createObjectURL(file));
+  }
 
   async function handleSubmit() {
     if (!nome.trim()) return;
     setEnviando(true);
+    setErro(null);
     try {
       const novo = await produtoService.criar({
         nome,
@@ -547,6 +612,26 @@ function NovoProdutoForm({
         categoria_id: categoriaId,
         preco: tipo === "simples" ? Number(preco) : undefined,
       });
+
+      // Produto criado. Se uma imagem foi escolhida, sobe ela agora num segundo
+      // passo (o endpoint de upload precisa do id do produto, que só existe
+      // depois de criado). Se esse passo falhar, o produto NÃO é perdido —
+      // ele já existe, só fica sem foto até o dono tentar de novo editando.
+      if (imagem) {
+        try {
+          const comImagem = await produtoService.uploadImagem(novo.id, imagem);
+          onCriado(comImagem);
+        } catch {
+          // O form fecha ao chamar onCriado, então o aviso precisa subir pro
+          // banner da página (que continua visível), não ficar num estado local daqui.
+          onAvisoImagem(
+            `"${novo.nome}" foi criado, mas a imagem não pôde ser enviada. Edite o produto pra tentar de novo.`,
+          );
+          onCriado(novo);
+        }
+        return;
+      }
+
       onCriado(novo);
     } catch (e) {
       setErro(
@@ -560,6 +645,34 @@ function NovoProdutoForm({
   return (
     <div className="mt-3 border border-neutral-200 rounded-md p-3 flex flex-col gap-2">
       {erro && <p className="text-xs text-red-600">{erro}</p>}
+      <div className="flex items-center gap-3">
+        <div className="w-14 h-14 rounded-md border border-neutral-200 bg-neutral-50 flex items-center justify-center overflow-hidden shrink-0">
+          {previewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={previewUrl} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-[10px] text-neutral-400 text-center px-1">
+              Sem foto
+            </span>
+          )}
+        </div>
+        <div>
+          <input
+            ref={inputImagemRef}
+            type="file"
+            accept="image/*"
+            onChange={handleSelecionarImagem}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => inputImagemRef.current?.click()}
+            className="text-xs font-medium text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 rounded-md px-2.5 py-1.5"
+          >
+            {previewUrl ? "Trocar foto" : "Adicionar foto"}
+          </button>
+        </div>
+      </div>
       <input
         value={nome}
         onChange={(e) => setNome(e.target.value)}
@@ -601,7 +714,7 @@ function NovoProdutoForm({
           disabled={enviando}
           className="bg-red-600 text-white text-xs font-medium px-3 py-1.5 rounded-md disabled:opacity-50"
         >
-          Salvar
+          {enviando ? "Salvando..." : "Salvar"}
         </button>
         <button onClick={onCancelar} className="text-xs text-neutral-500">
           Cancelar

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { pizzariaService } from "@/server/pizzaria.service";
 import { PizzariaMe } from "@/types/pizzaria";
 
@@ -17,7 +17,14 @@ export default function ConfiguracoesPage() {
     });
     const [loading, setLoading] = useState(true);
     const [salvando, setSalvando] = useState(false);
+    const [enviandoLogo, setEnviandoLogo] = useState(false);
     const [mensagem, setMensagem] = useState<{ tipo: "sucesso" | "erro"; texto: string } | null>(null);
+    // cache-buster: o path da logo no bucket é sempre o mesmo ({pizzariaId}/logo.webp),
+    // então sem isso o browser mostra a versão antiga em cache mesmo após o upload.
+    // Guardado no localStorage (não no state) pra sobreviver a um F5 — um state comum
+    // reseta pra 0 no reload, e nesse momento o browser já tem a URL sem "?t=" em cache.
+    const [logoCacheBuster, setLogoCacheBuster] = useState<number | null>(null);
+    const inputLogoRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         async function carregar() {
@@ -36,6 +43,11 @@ export default function ConfiguracoesPage() {
             }
         }
         carregar();
+
+        // recupera o último cache-buster salvo, se existir, pra já aplicar
+        // desde o primeiro render (evita mostrar a logo antiga em cache até o próximo upload)
+        const salvo = window.localStorage.getItem("bella-pizza:logo-cache-buster");
+        if (salvo) setLogoCacheBuster(Number(salvo));
     }, []);
 
     function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -97,6 +109,29 @@ export default function ConfiguracoesPage() {
         }
     }
 
+    async function handleSelecionarLogo(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        // limpa o input pra permitir selecionar o mesmo arquivo de novo depois, se precisar
+        e.target.value = "";
+        if (!file) return;
+
+        setEnviandoLogo(true);
+        setMensagem(null);
+        try {
+            const atualizado = await pizzariaService.uploadLogo(file);
+            setPizzaria(atualizado);
+            const agora = Date.now();
+            setLogoCacheBuster(agora);
+            window.localStorage.setItem("bella-pizza:logo-cache-buster", String(agora));
+            setMensagem({ tipo: "sucesso", texto: "Logo atualizada com sucesso!" });
+        } catch (err) {
+            const mensagemErro = err instanceof Error ? err.message : "Erro ao enviar logo";
+            setMensagem({ tipo: "erro", texto: mensagemErro });
+        } finally {
+            setEnviandoLogo(false);
+        }
+    }
+
     if (loading) {
         return <div className="p-6 text-gray-500">Carregando configurações...</div>;
     }
@@ -116,6 +151,43 @@ export default function ConfiguracoesPage() {
                     {mensagem.texto}
                 </div>
             )}
+
+            {/* Logo da pizzaria */}
+            <div className="bg-white border border-gray-200 rounded-xl p-6 mb-5">
+                <label className="block text-sm font-medium text-gray-700 mb-3">Logo da pizzaria</label>
+                <div className="flex items-center gap-4">
+                    <div className="w-20 h-20 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
+                        {pizzaria?.logo_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                                src={`${pizzaria.logo_url}${logoCacheBuster ? `?t=${logoCacheBuster}` : ""}`}
+                                alt="Logo da pizzaria"
+                                className="w-full h-full object-cover"
+                            />
+                        ) : (
+                            <span className="text-xs text-gray-400 text-center px-1">Sem logo</span>
+                        )}
+                    </div>
+                    <div>
+                        <input
+                            ref={inputLogoRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleSelecionarLogo}
+                            className="hidden"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => inputLogoRef.current?.click()}
+                            disabled={enviandoLogo}
+                            className="text-sm font-medium text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-50 rounded-lg px-3 py-1.5"
+                        >
+                            {enviandoLogo ? "Enviando..." : "Alterar logo"}
+                        </button>
+                        <p className="text-xs text-gray-500 mt-1.5">PNG ou JPG, até 8MB.</p>
+                    </div>
+                </div>
+            </div>
 
             <form onSubmit={handleSalvar} className="space-y-5 bg-white border border-gray-200 rounded-xl p-6">
                 <div>

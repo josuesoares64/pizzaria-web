@@ -17,4 +17,10 @@ export const produtoService = {
   excluir(id: string): Promise<{ id: string }> {
     return api.delete<{ id: string }>(`/produtos/${id}`);
   },
+
+  uploadImagem(produtoId: string, file: File) {
+    const formData = new FormData();
+    formData.append("imagem", file);
+    return api.patchForm<Produto>(`/produtos/${produtoId}/imagem`, formData);
+  },
 };

@@ -20,9 +20,10 @@ class ApiClient {
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const token = Cookies.get("token");
+    const isFormData = options.body instanceof FormData;
 
     const headers: HeadersInit = {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     };
@@ -73,6 +74,14 @@ class ApiClient {
       ...options,
       method: "PATCH",
       body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  patchForm<T>(endpoint: string, formData: FormData, options?: RequestInit) {
+    return this.request<T>(endpoint, {
+      ...options,
+      method: "PATCH",
+      body: formData,
     });
   }
 
