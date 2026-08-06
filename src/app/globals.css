@@ -5,3 +5,24 @@
 html {
   scroll-behavior: smooth;
 }
+
+@media print {
+  body * {
+    display: none !important;
+  }
+  .print-cupom-area,
+  .print-cupom-area * {
+    display: revert !important;
+  }
+  .print-cupom-area {
+    position: static !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  #recibo-para-imprimir {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+}

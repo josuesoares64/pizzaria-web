@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Cookies from "js-cookie";
 import { authService } from "@/server/auth.service";
@@ -57,40 +58,55 @@ function LoginForm() {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="max-w-sm mx-auto mt-20 flex flex-col gap-4"
-    >
-      <h1 className="text-2xl font-bold">Entrar</h1>
+    <div className="max-w-sm mx-auto mt-20 flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <h1 className="text-2xl font-bold">Entrar</h1>
 
-      {erro && <p className="text-red-600 text-sm">{erro}</p>}
+        {erro && <p className="text-red-600 text-sm">{erro}</p>}
 
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className="border rounded px-3 py-2"
-        required
-      />
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="border rounded px-3 py-2"
+          required
+        />
 
-      <input
-        type="password"
-        placeholder="Senha"
-        value={senha}
-        onChange={(e) => setSenha(e.target.value)}
-        className="border rounded px-3 py-2"
-        required
-      />
+        <input
+          type="password"
+          placeholder="Senha"
+          value={senha}
+          onChange={(e) => setSenha(e.target.value)}
+          className="border rounded px-3 py-2"
+          required
+        />
 
-      <button
-        type="submit"
-        disabled={carregando}
-        className="bg-black text-white rounded px-3 py-2 disabled:opacity-50"
-      >
-        {carregando ? "Entrando..." : "Entrar"}
-      </button>
-    </form>
+        <button
+          type="submit"
+          disabled={carregando}
+          className="bg-black text-white rounded px-3 py-2 disabled:opacity-50"
+        >
+          {carregando ? "Entrando..." : "Entrar"}
+        </button>
+      </form>
+
+      <p className="text-center text-sm text-gray-600">
+        Não tem conta?{" "}
+        <Link href="/register" className="text-red-600 font-medium hover:underline">
+          Criar conta
+        </Link>
+      </p>
+
+      <div className="mt-6 pt-4 border-t text-center">
+        <p className="text-xs text-gray-500">
+          Tem um negócio?{" "}
+          <Link href="/register-owner" className="text-gray-700 font-medium hover:underline">
+            Cadastre sua pizzaria aqui
+          </Link>
+        </p>
+      </div>
+    </div>
   );
 }
 

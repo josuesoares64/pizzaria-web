@@ -2,7 +2,10 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { orderService } from "@/server/order.service";
+import { pizzariaService } from "@/server/pizzaria.service";
 import { Order, StatusPedido } from "@/types/order";
+import ReciboModal from "./ReciboModal";
+import ImpressaoAutomatica from "./ImpressaoAutomatica";
 
 const COLUNAS_ATIVAS: { status: StatusPedido; label: string; cor: string }[] = [
   { status: "pendente", label: "Pendente", cor: "border-amber-400" },
@@ -27,9 +30,15 @@ const FORMA_PAGAMENTO_LABEL: Record<string, string> = {
 };
 
 const POLLING_MS = 20000;
+const CHAVE_IMPRESSAO_AUTOMATICA = "bella_pizza_impressao_automatica";
 
 function formatarMoeda(valor: number) {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+interface Toast {
+  id: string;
+  mensagem: string;
 }
 
 export default function PedidosKanban() {
@@ -37,6 +46,11 @@ export default function PedidosKanban() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [aba, setAba] = useState<"ativos" | "historico">("ativos");
+  const [larguraCupom, setLarguraCupom] = useState<"58mm" | "80mm">("80mm");
+  const [nomePizzaria, setNomePizzaria] = useState("");
+  const [pedidoParaImprimir, setPedidoParaImprimir] = useState<Order | null>(null);
+  const [impressaoAutomatica, setImpressaoAutomatica] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
 
   const buscarPedidos = useCallback(async (silencioso = false) => {
     if (!silencioso) setCarregando(true);
@@ -56,6 +70,41 @@ export default function PedidosKanban() {
     const intervalo = setInterval(() => buscarPedidos(true), POLLING_MS);
     return () => clearInterval(intervalo);
   }, [buscarPedidos]);
+
+  useEffect(() => {
+    pizzariaService.getMe().then((pizzaria) => {
+      setLarguraCupom(pizzaria.largura_cupom);
+      setNomePizzaria(pizzaria.nome);
+    });
+  }, []);
+
+  // Lê a preferência salva neste computador ao carregar a tela
+  useEffect(() => {
+    const salvo = localStorage.getItem(CHAVE_IMPRESSAO_AUTOMATICA);
+    setImpressaoAutomatica(salvo === "true");
+  }, []);
+
+  function handleToggleImpressaoAutomatica() {
+    const novoValor = !impressaoAutomatica;
+    setImpressaoAutomatica(novoValor);
+    localStorage.setItem(CHAVE_IMPRESSAO_AUTOMATICA, String(novoValor));
+  }
+
+  function mostrarToast(mensagem: string) {
+    const id = crypto.randomUUID();
+    setToasts((prev) => [...prev, { id, mensagem }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
+  }
+
+  function handlePedidoImpressoAutomaticamente(pedido: Order) {
+    // Atualização otimista: marca localmente como impresso, pra fila não pegar de novo antes do próximo polling
+    setPedidos((prev) =>
+      prev.map((p) => (p.id === pedido.id ? { ...p, impresso_em: new Date().toISOString() } : p))
+    );
+    mostrarToast(`🖨️ Pedido #${pedido.id.slice(0, 8).toUpperCase()} impresso`);
+  }
 
   async function handleMudarStatus(orderId: string, novoStatus: StatusPedido) {
     const anterior = pedidos;
@@ -82,23 +131,41 @@ export default function PedidosKanban() {
     <div>
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-xl font-semibold text-neutral-800">Pedidos</h1>
-        <div className="flex gap-1 bg-neutral-100 rounded-lg p-1">
-          <button
-            onClick={() => setAba("ativos")}
-            className={`px-3 py-1.5 text-sm rounded-md font-medium ${
-              aba === "ativos" ? "bg-white shadow-sm text-neutral-800" : "text-neutral-500"
-            }`}
-          >
-            Ativos
-          </button>
-          <button
-            onClick={() => setAba("historico")}
-            className={`px-3 py-1.5 text-sm rounded-md font-medium ${
-              aba === "historico" ? "bg-white shadow-sm text-neutral-800" : "text-neutral-500"
-            }`}
-          >
-            Histórico
-          </button>
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 text-xs font-medium text-neutral-600 cursor-pointer select-none">
+            Impressão automática
+            <button
+              type="button"
+              onClick={handleToggleImpressaoAutomatica}
+              className={`relative w-9 h-5 rounded-full transition-colors ${
+                impressaoAutomatica ? "bg-green-500" : "bg-neutral-300"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                  impressaoAutomatica ? "translate-x-4" : ""
+                }`}
+              />
+            </button>
+          </label>
+          <div className="flex gap-1 bg-neutral-100 rounded-lg p-1">
+            <button
+              onClick={() => setAba("ativos")}
+              className={`px-3 py-1.5 text-sm rounded-md font-medium ${
+                aba === "ativos" ? "bg-white shadow-sm text-neutral-800" : "text-neutral-500"
+              }`}
+            >
+              Ativos
+            </button>
+            <button
+              onClick={() => setAba("historico")}
+              className={`px-3 py-1.5 text-sm rounded-md font-medium ${
+                aba === "historico" ? "bg-white shadow-sm text-neutral-800" : "text-neutral-500"
+              }`}
+            >
+              Histórico
+            </button>
+          </div>
         </div>
       </div>
 
@@ -130,6 +197,7 @@ export default function PedidosKanban() {
                       pedido={pedido}
                       corBorda={coluna.cor}
                       onMudarStatus={handleMudarStatus}
+                      onImprimir={setPedidoParaImprimir}
                     />
                   ))}
                 </div>
@@ -148,10 +216,39 @@ export default function PedidosKanban() {
               pedido={pedido}
               corBorda={pedido.status === "entregue" ? "border-green-400" : "border-red-400"}
               onMudarStatus={handleMudarStatus}
+              onImprimir={setPedidoParaImprimir}
             />
           ))}
         </div>
       )}
+
+      {pedidoParaImprimir && (
+        <ReciboModal
+          pedido={pedidoParaImprimir}
+          larguraCupom={larguraCupom}
+          nomePizzaria={nomePizzaria}
+          onClose={() => setPedidoParaImprimir(null)}
+        />
+      )}
+
+      <ImpressaoAutomatica
+        pedidos={pedidos}
+        ativo={impressaoAutomatica}
+        larguraCupom={larguraCupom}
+        nomePizzaria={nomePizzaria}
+        onImprimir={handlePedidoImpressoAutomaticamente}
+      />
+
+      <div className="fixed bottom-4 right-4 flex flex-col gap-2 z-[60] no-print">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className="bg-neutral-800 text-white text-sm rounded-md px-4 py-2 shadow-lg"
+          >
+            {toast.mensagem}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -160,10 +257,12 @@ function PedidoCard({
   pedido,
   corBorda,
   onMudarStatus,
+  onImprimir,
 }: {
   pedido: Order;
   corBorda: string;
   onMudarStatus: (id: string, status: StatusPedido) => void;
+  onImprimir: (pedido: Order) => void;
 }) {
   const horario = new Date(pedido.createdAt).toLocaleTimeString("pt-BR", {
     hour: "2-digit",
@@ -191,7 +290,16 @@ function PedidoCard({
           </p>
           <p className="text-xs text-neutral-400">{pedido.cliente?.telefone}</p>
         </div>
-        <span className="text-xs text-neutral-400">{horario}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-neutral-400">{horario}</span>
+          <button
+            onClick={() => onImprimir(pedido)}
+            title="Imprimir cupom"
+            className="text-sm text-neutral-400 hover:text-neutral-700"
+          >
+            🖨️
+          </button>
+        </div>
       </div>
 
       <div className="mb-2 pb-2 border-b border-neutral-100">

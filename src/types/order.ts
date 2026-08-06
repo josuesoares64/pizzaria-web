@@ -69,4 +69,5 @@ export interface Order {
   total: string;
   itens: OrderItem[];
   createdAt: string;
+  impresso_em?: string | null;
 }

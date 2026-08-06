@@ -33,3 +33,10 @@ export interface Funcionario {
     email: string;
     telefone: string;
 }
+
+export interface ClienteInput {
+    nome: string;
+    email: string;
+    senha: string;
+    telefone: string;
+}

@@ -17,4 +17,8 @@ export const orderService = {
   atualizarStatus(orderId: string, status: StatusPedido): Promise<Order> {
     return api.patch<Order>(`/orders/${orderId}/status`, { status });
   },
+
+  marcarComoImpresso(orderId: string): Promise<Order> {
+    return api.patch<Order>(`/orders/${orderId}/imprimir`, {});
+  },
 };

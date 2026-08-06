@@ -23,4 +23,5 @@ export interface PizzariaDetalhe extends PizzariaResumo {
 export interface PizzariaMe extends PizzariaResumo {
     plano: string;
     bloqueado: boolean;
+    largura_cupom: '58mm' | '80mm';
 }

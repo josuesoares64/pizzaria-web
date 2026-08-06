@@ -14,7 +14,7 @@ export const pizzariaService = {
         return api.get<PizzariaMe>("/pizzarias/me");
     },
 
-    atualizar(dados: Partial<Pick<PizzariaMe, "nome" | "slug" | "telefone" | "endereco">>): Promise<PizzariaMe> {
+    atualizar(dados: Partial<Pick<PizzariaMe, "nome" | "slug" | "telefone" | "endereco" | "largura_cupom">>): Promise<PizzariaMe> {
         return api.patch<PizzariaMe>("/pizzarias/me", dados);
     },
 
