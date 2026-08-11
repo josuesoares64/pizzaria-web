@@ -13,6 +13,7 @@ export interface PizzariaResumo {
     telefone: string;
     endereco: string;
     logo_url: string;
+    taxa_entrega: number | null;
 }
 
 export interface PizzariaDetalhe extends PizzariaResumo {

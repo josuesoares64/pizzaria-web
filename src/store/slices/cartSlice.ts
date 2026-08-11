@@ -4,11 +4,13 @@ import { CartItem } from '@/types/carrinho';
 interface CartState {
   items: CartItem[];
   pizzariaId: string | null;
+  pizzariaSlug: string | null;
 }
 
 const initialState: CartState = {
   items: [],
   pizzariaId: null,
+  pizzariaSlug: null,
 };
 
 function gerarId(item: Pick<CartItem, 'produtoId' | 'produtoId2' | 'tamanhoId' | 'bordaId'>) {
@@ -51,13 +53,15 @@ const cartSlice = createSlice({
       state.items = [];
     },
     // Restaura o último carrinho ativo (chamado no boot do app, pelo CartInitializer)
-    hydrate: (state, action: PayloadAction<{ pizzariaId: string | null; items: CartItem[] }>) => {
+    hydrate: (state, action: PayloadAction<{ pizzariaId: string | null; pizzariaSlug: string | null; items: CartItem[] }>) => {
       state.pizzariaId = action.payload.pizzariaId;
+      state.pizzariaSlug = action.payload.pizzariaSlug;
       state.items = action.payload.items;
     },
     // Troca de carrinho quando o cliente entra em uma pizzaria diferente
-    trocarPizzaria: (state, action: PayloadAction<{ pizzariaId: string; items: CartItem[] }>) => {
+    trocarPizzaria: (state, action: PayloadAction<{ pizzariaId: string; pizzariaSlug: string; items: CartItem[] }>) => {
       state.pizzariaId = action.payload.pizzariaId;
+      state.pizzariaSlug = action.payload.pizzariaSlug;
       state.items = action.payload.items;
     },
   },

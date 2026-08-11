@@ -6,9 +6,10 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { clearCart } from '@/store/slices/cartSlice';
 import { enderecoService } from '@/server/endereco.service';
 import { orderService } from '@/server/order.service';
+import { pizzariaService } from '@/server/pizzaria.service';
 import { Endereco } from '@/types/endereco';
-import { FormaPagamento } from '@/types/order';
-import { FiMapPin, FiLoader, FiAlertTriangle } from 'react-icons/fi';
+import { FormaPagamento, TipoPedido } from '@/types/order';
+import { FiMapPin, FiLoader, FiAlertTriangle, FiShoppingBag, FiGrid } from 'react-icons/fi';
 
 function formatarPreco(valor: number) {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -23,22 +24,33 @@ const enderecoVazio: Endereco = {
   referencia: '',
 };
 
+const tiposPedido: { valor: TipoPedido; label: string; icone: React.ReactNode }[] = [
+  { valor: 'entrega', label: 'Entrega', icone: <FiMapPin size={16} /> },
+  { valor: 'retirada', label: 'Retirada', icone: <FiShoppingBag size={16} /> },
+  { valor: 'mesa', label: 'Mesa', icone: <FiGrid size={16} /> },
+];
+
 export default function CheckoutPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const items = useAppSelector((state) => state.cart.items);
   const pizzariaId = useAppSelector((state) => state.cart.pizzariaId);
+  const pizzariaSlug = useAppSelector((state) => state.cart.pizzariaSlug);
 
+  const [tipoPedido, setTipoPedido] = useState<TipoPedido>('entrega');
+  const [numeroMesa, setNumeroMesa] = useState('');
   const [endereco, setEndereco] = useState<Endereco>(enderecoVazio);
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>('pix');
   const [trocoPara, setTrocoPara] = useState('');
   const [observacoes, setObservacoes] = useState('');
 
   const [carregandoEndereco, setCarregandoEndereco] = useState(true);
+  const [taxaEntrega, setTaxaEntrega] = useState<number | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState('');
 
-  const total = items.reduce((soma, item) => soma + item.precoUnitario * item.quantidade, 0);
+  const subtotal = items.reduce((soma, item) => soma + item.precoUnitario * item.quantidade, 0);
+  const total = tipoPedido === 'entrega' && taxaEntrega ? subtotal + taxaEntrega : subtotal;
 
   useEffect(() => {
     async function carregarEndereco() {
@@ -54,8 +66,26 @@ export default function CheckoutPage() {
     carregarEndereco();
   }, []);
 
+  useEffect(() => {
+    async function carregarTaxa() {
+      if (!pizzariaSlug) return;
+      try {
+        const data = await pizzariaService.buscarPorSlug(pizzariaSlug);
+        setTaxaEntrega(data.taxa_entrega !== null ? Number(data.taxa_entrega) : null);
+      } catch {
+        setTaxaEntrega(null);
+      }
+    }
+    carregarTaxa();
+  }, [pizzariaSlug]);
+
   function atualizarCampo(campo: keyof Endereco, valor: string) {
     setEndereco((prev) => ({ ...prev, [campo]: valor }));
+  }
+
+  function handleTrocarTipoPedido(tipo: TipoPedido) {
+    setTipoPedido(tipo);
+    setErro('');
   }
 
   function handleTrocarFormaPagamento(forma: FormaPagamento) {
@@ -79,8 +109,13 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (!endereco.cep || !endereco.numero || !endereco.rua || !endereco.bairro) {
+    if (tipoPedido === 'entrega' && (!endereco.cep || !endereco.numero || !endereco.rua || !endereco.bairro)) {
       setErro('Preencha CEP, número, rua e bairro para continuar.');
+      return;
+    }
+
+    if (tipoPedido === 'mesa' && !numeroMesa.trim()) {
+      setErro('Informe o número da mesa para continuar.');
       return;
     }
 
@@ -92,14 +127,18 @@ export default function CheckoutPage() {
     setEnviando(true);
 
     try {
-      await enderecoService.salvar(endereco);
+      if (tipoPedido === 'entrega') {
+        await enderecoService.salvar(endereco);
+      }
 
       await orderService.criarPedido({
         pizzaria_id: pizzariaId,
         forma_pagamento: formaPagamento,
         troco_para: formaPagamento === 'dinheiro' && trocoPara ? Number(trocoPara) : undefined,
         observacoes: observacoes || undefined,
-        endereco,
+        tipo_pedido: tipoPedido,
+        endereco: tipoPedido === 'entrega' ? endereco : undefined,
+        numero_mesa: tipoPedido === 'mesa' ? numeroMesa.trim() : undefined,
         itens: items.map((item) => ({
           produto_id: item.produtoId,
           produto_id_2: item.produtoId2,
@@ -162,56 +201,106 @@ export default function CheckoutPage() {
             ))}
           </div>
           <div className="flex justify-between mt-3 px-1">
+            <span className="text-gray-600 text-sm">Subtotal</span>
+            <span className="text-sm">{formatarPreco(subtotal)}</span>
+          </div>
+          {tipoPedido === 'entrega' && taxaEntrega !== null && (
+            <div className="flex justify-between px-1">
+              <span className="text-gray-600 text-sm">Taxa de entrega</span>
+              <span className="text-sm">{formatarPreco(taxaEntrega)}</span>
+            </div>
+          )}
+          <div className="flex justify-between mt-1 px-1">
             <span className="font-medium">Total</span>
             <span className="font-bold text-lg">{formatarPreco(total)}</span>
           </div>
         </section>
 
-        {/* Endereço de entrega */}
+        {/* Tipo de pedido */}
         <section>
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 mb-3">
-            <FiMapPin className="text-red-600" size={18} />
-            Endereço de entrega
-          </h2>
-          <div className="grid grid-cols-2 gap-3">
-            <input
-              placeholder="CEP"
-              value={endereco.cep}
-              onChange={(e) => atualizarCampo('cep', e.target.value)}
-              className="col-span-1 border rounded-lg px-3 py-2 text-sm"
-            />
-            <input
-              placeholder="Número"
-              value={endereco.numero}
-              onChange={(e) => atualizarCampo('numero', e.target.value)}
-              className="col-span-1 border rounded-lg px-3 py-2 text-sm"
-            />
-            <input
-              placeholder="Rua"
-              value={endereco.rua}
-              onChange={(e) => atualizarCampo('rua', e.target.value)}
-              className="col-span-2 border rounded-lg px-3 py-2 text-sm"
-            />
-            <input
-              placeholder="Bairro"
-              value={endereco.bairro}
-              onChange={(e) => atualizarCampo('bairro', e.target.value)}
-              className="col-span-2 border rounded-lg px-3 py-2 text-sm"
-            />
-            <input
-              placeholder="Complemento (opcional)"
-              value={endereco.complemento || ''}
-              onChange={(e) => atualizarCampo('complemento', e.target.value)}
-              className="col-span-2 border rounded-lg px-3 py-2 text-sm"
-            />
-            <input
-              placeholder="Ponto de referência (opcional)"
-              value={endereco.referencia || ''}
-              onChange={(e) => atualizarCampo('referencia', e.target.value)}
-              className="col-span-2 border rounded-lg px-3 py-2 text-sm"
-            />
+          <h2 className="text-lg font-semibold text-gray-900 mb-3">Como você quer receber?</h2>
+          <div className="flex gap-3">
+            {tiposPedido.map((tipo) => (
+              <button
+                type="button"
+                key={tipo.valor}
+                onClick={() => handleTrocarTipoPedido(tipo.valor)}
+                className={`flex-1 flex items-center justify-center gap-2 border rounded-lg py-2 text-sm font-medium transition-colors ${
+                  tipoPedido === tipo.valor
+                    ? 'bg-red-600 text-white border-red-600'
+                    : 'bg-white text-gray-700 hover:border-red-300'
+                }`}
+              >
+                {tipo.icone}
+                {tipo.label}
+              </button>
+            ))}
           </div>
         </section>
+
+        {/* Endereço de entrega — só aparece quando tipo_pedido === 'entrega' */}
+        {tipoPedido === 'entrega' && (
+          <section>
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 mb-3">
+              <FiMapPin className="text-red-600" size={18} />
+              Endereço de entrega
+            </h2>
+            <div className="grid grid-cols-2 gap-3">
+              <input
+                placeholder="CEP"
+                value={endereco.cep}
+                onChange={(e) => atualizarCampo('cep', e.target.value)}
+                className="col-span-1 border rounded-lg px-3 py-2 text-sm"
+              />
+              <input
+                placeholder="Número"
+                value={endereco.numero}
+                onChange={(e) => atualizarCampo('numero', e.target.value)}
+                className="col-span-1 border rounded-lg px-3 py-2 text-sm"
+              />
+              <input
+                placeholder="Rua"
+                value={endereco.rua}
+                onChange={(e) => atualizarCampo('rua', e.target.value)}
+                className="col-span-2 border rounded-lg px-3 py-2 text-sm"
+              />
+              <input
+                placeholder="Bairro"
+                value={endereco.bairro}
+                onChange={(e) => atualizarCampo('bairro', e.target.value)}
+                className="col-span-2 border rounded-lg px-3 py-2 text-sm"
+              />
+              <input
+                placeholder="Complemento (opcional)"
+                value={endereco.complemento || ''}
+                onChange={(e) => atualizarCampo('complemento', e.target.value)}
+                className="col-span-2 border rounded-lg px-3 py-2 text-sm"
+              />
+              <input
+                placeholder="Ponto de referência (opcional)"
+                value={endereco.referencia || ''}
+                onChange={(e) => atualizarCampo('referencia', e.target.value)}
+                className="col-span-2 border rounded-lg px-3 py-2 text-sm"
+              />
+            </div>
+          </section>
+        )}
+
+        {/* Número da mesa — só aparece quando tipo_pedido === 'mesa' */}
+        {tipoPedido === 'mesa' && (
+          <section>
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 mb-3">
+              <FiGrid className="text-red-600" size={18} />
+              Número da mesa
+            </h2>
+            <input
+              placeholder="Ex: 5"
+              value={numeroMesa}
+              onChange={(e) => setNumeroMesa(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+            />
+          </section>
+        )}
 
         {/* Forma de pagamento */}
         <section>

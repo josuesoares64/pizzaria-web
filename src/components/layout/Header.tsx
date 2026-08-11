@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { logout } from '@/store/slices/authSlice';
+import { FiArrowLeft } from 'react-icons/fi';
 import { CartDrawer } from '../cardapio/CartDrawer';
 
 export function Header() {
@@ -25,7 +26,16 @@ export function Header() {
     <>
       <header className="sticky top-0 z-30 bg-white border-b">
         <div className="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
-          <span className="font-bold text-lg text-red-600">🍕 Bella Pizza</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => router.back()}
+              className="p-1.5 -ml-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+              aria-label="Voltar"
+            >
+              <FiArrowLeft size={20} />
+            </button>
+            <span className="font-bold text-lg text-red-600">Fornohub</span>
+          </div>
 
           <div className="flex items-center gap-3">
             {usuario && (

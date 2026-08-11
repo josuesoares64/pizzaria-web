@@ -2,6 +2,8 @@ import { Endereco } from './endereco';
 
 export type FormaPagamento = 'dinheiro' | 'pix' | 'cartao';
 
+export type TipoPedido = 'entrega' | 'retirada' | 'mesa';
+
 export type StatusPedido =
   | 'pendente'
   | 'confirmado'
@@ -24,7 +26,9 @@ export interface CriarPedidoInput {
   forma_pagamento: FormaPagamento;
   troco_para?: number;
   observacoes?: string;
-  endereco: Endereco;
+  tipo_pedido: TipoPedido;
+  endereco?: Endereco;
+  numero_mesa?: string;
   itens: OrderItemInput[];
 }
 
@@ -60,10 +64,12 @@ export interface Order {
   troco_para?: string;
   status: StatusPedido;
   observacoes?: string;
-  endereco_cep: string;
-  endereco_rua: string;
-  endereco_numero: string;
-  endereco_bairro: string;
+  tipo_pedido: TipoPedido;
+  numero_mesa?: string;
+  endereco_cep?: string;
+  endereco_rua?: string;
+  endereco_numero?: string;
+  endereco_bairro?: string;
   endereco_complemento?: string;
   endereco_referencia?: string;
   total: string;

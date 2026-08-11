@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import StoreProvider from '@/store/Provider';
 import AuthInitializer from '@/store/AuthInitializer';
 import { CartInitializer } from '@/store/CartInitializer';
-import { Header } from '@/components/layout/Header';
 import './globals.css';
 
 const geistSans = Geist({
@@ -17,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Pizzaria Web',
+  title: 'Fornohub',
   description: 'A melhor da região',
 };
 
@@ -34,7 +33,6 @@ export default function RootLayout({
         <StoreProvider>
           <AuthInitializer>
             <CartInitializer />
-            <Header />
             {children}
           </AuthInitializer>
         </StoreProvider>

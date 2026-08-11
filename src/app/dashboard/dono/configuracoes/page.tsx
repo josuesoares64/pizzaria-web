@@ -6,12 +6,21 @@ import { PizzariaMe } from "@/types/pizzaria";
 
 export default function ConfiguracoesPage() {
   const [pizzaria, setPizzaria] = useState<PizzariaMe | null>(null);
-  const [form, setForm] = useState({
-    nome: "",
-    slug: "",
-    telefone: "",
-    larguraCupom: "80mm" as "58mm" | "80mm",
-  });
+  const [loading, setLoading] = useState(true);
+  const [mensagem, setMensagem] = useState<{
+    tipo: "sucesso" | "erro";
+    texto: string;
+  } | null>(null);
+  const [logoCacheBuster, setLogoCacheBuster] = useState<number | null>(null);
+  const [enviandoLogo, setEnviandoLogo] = useState(false);
+  const inputLogoRef = useRef<HTMLInputElement>(null);
+
+  // ---- Card: Identidade ----
+  const [formIdentidade, setFormIdentidade] = useState({ nome: "", slug: "" });
+  const [salvandoIdentidade, setSalvandoIdentidade] = useState(false);
+
+  // ---- Card: Entrega e contato ----
+  const [formEntrega, setFormEntrega] = useState({ telefone: "", taxaEntrega: "" });
   const [endereco, setEndereco] = useState({
     cep: "",
     rua: "",
@@ -20,33 +29,29 @@ export default function ConfiguracoesPage() {
     cidade: "",
     estado: "",
   });
-  const [loading, setLoading] = useState(true);
-  const [salvando, setSalvando] = useState(false);
-  const [enviandoLogo, setEnviandoLogo] = useState(false);
-  const [mensagem, setMensagem] = useState<{
-    tipo: "sucesso" | "erro";
-    texto: string;
-  } | null>(null);
-  const [logoCacheBuster, setLogoCacheBuster] = useState<number | null>(null);
-  const inputLogoRef = useRef<HTMLInputElement>(null);
+  const [salvandoEntrega, setSalvandoEntrega] = useState(false);
+
+  // ---- Card: Impressão ----
+  const [larguraCupom, setLarguraCupom] = useState<"58mm" | "80mm">("80mm");
+  const [salvandoImpressao, setSalvandoImpressao] = useState(false);
 
   useEffect(() => {
     async function carregar() {
       try {
         const dados = await pizzariaService.getMe();
         setPizzaria(dados);
-        setForm({
-          nome: dados.nome,
-          slug: dados.slug,
+        setFormIdentidade({ nome: dados.nome, slug: dados.slug });
+        setFormEntrega({
           telefone: dados.telefone || "",
-          larguraCupom: dados.largura_cupom,
+          taxaEntrega:
+            dados.taxa_entrega !== null && dados.taxa_entrega !== undefined
+              ? String(dados.taxa_entrega)
+              : "",
         });
+        setLarguraCupom(dados.largura_cupom);
       } catch (err) {
         console.error(err);
-        setMensagem({
-          tipo: "erro",
-          texto: "Erro ao carregar dados da pizzaria",
-        });
+        setMensagem({ tipo: "erro", texto: "Erro ao carregar dados da pizzaria" });
       } finally {
         setLoading(false);
       }
@@ -56,11 +61,6 @@ export default function ConfiguracoesPage() {
     const salvo = window.localStorage.getItem("bella-pizza:logo-cache-buster");
     if (salvo) setLogoCacheBuster(Number(salvo));
   }, []);
-
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  }
 
   function handleEnderecoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = e.target;
@@ -78,60 +78,94 @@ export default function ConfiguracoesPage() {
     return partes.join(", ");
   }
 
-  async function handleSalvar(e: React.FormEvent) {
+  // ---- Salvar: Identidade ----
+  async function handleSalvarIdentidade(e: React.FormEvent) {
     e.preventDefault();
     if (!pizzaria) return;
 
-    if (form.slug !== pizzaria.slug) {
+    if (formIdentidade.slug !== pizzaria.slug) {
       const confirmar = window.confirm(
         "Você está alterando o slug da pizzaria. Isso muda o link do cardápio público e pode quebrar links já compartilhados com clientes. Deseja continuar?",
       );
       if (!confirmar) return;
     }
 
-    const enderecoFinal = montarEnderecoString();
-
-    setSalvando(true);
+    setSalvandoIdentidade(true);
     setMensagem(null);
     try {
       const atualizado = await pizzariaService.atualizar({
-        nome: form.nome,
-        slug: form.slug,
-        telefone: form.telefone,
-        largura_cupom: form.larguraCupom,
+        nome: formIdentidade.nome,
+        slug: formIdentidade.slug,
+      });
+      setPizzaria(atualizado);
+      setFormIdentidade({ nome: atualizado.nome, slug: atualizado.slug });
+      setMensagem({ tipo: "sucesso", texto: "Identidade atualizada com sucesso!" });
+    } catch (err) {
+      const mensagemErro = err instanceof Error ? err.message : "Erro ao salvar";
+      setMensagem({ tipo: "erro", texto: mensagemErro });
+    } finally {
+      setSalvandoIdentidade(false);
+    }
+  }
+
+  // ---- Salvar: Entrega e contato ----
+  async function handleSalvarEntrega(e: React.FormEvent) {
+    e.preventDefault();
+    if (!pizzaria) return;
+
+    const enderecoFinal = montarEnderecoString();
+    const taxaTrimmed = formEntrega.taxaEntrega.trim();
+
+    setSalvandoEntrega(true);
+    setMensagem(null);
+    try {
+      const atualizado = await pizzariaService.atualizar({
+        telefone: formEntrega.telefone,
+        taxa_entrega: taxaTrimmed === "" ? null : Number(taxaTrimmed),
         ...(enderecoFinal ? { endereco: enderecoFinal } : {}),
       });
       setPizzaria(atualizado);
-      setForm({
-        nome: atualizado.nome,
-        slug: atualizado.slug,
+      setFormEntrega({
         telefone: atualizado.telefone || "",
-        larguraCupom: atualizado.largura_cupom,
+        taxaEntrega:
+          atualizado.taxa_entrega !== null && atualizado.taxa_entrega !== undefined
+            ? String(atualizado.taxa_entrega)
+            : "",
       });
-      setEndereco({
-        cep: "",
-        rua: "",
-        numero: "",
-        bairro: "",
-        cidade: "",
-        estado: "",
-      });
-      setMensagem({
-        tipo: "sucesso",
-        texto: "Configurações salvas com sucesso!",
-      });
+      setEndereco({ cep: "", rua: "", numero: "", bairro: "", cidade: "", estado: "" });
+      setMensagem({ tipo: "sucesso", texto: "Entrega e contato atualizados com sucesso!" });
     } catch (err) {
-      const mensagemErro =
-        err instanceof Error ? err.message : "Erro ao salvar configurações";
+      const mensagemErro = err instanceof Error ? err.message : "Erro ao salvar";
       setMensagem({ tipo: "erro", texto: mensagemErro });
     } finally {
-      setSalvando(false);
+      setSalvandoEntrega(false);
+    }
+  }
+
+  // ---- Salvar: Impressão ----
+  async function handleSalvarImpressao(e: React.FormEvent) {
+    e.preventDefault();
+    if (!pizzaria) return;
+
+    setSalvandoImpressao(true);
+    setMensagem(null);
+    try {
+      const atualizado = await pizzariaService.atualizar({
+        largura_cupom: larguraCupom,
+      });
+      setPizzaria(atualizado);
+      setLarguraCupom(atualizado.largura_cupom);
+      setMensagem({ tipo: "sucesso", texto: "Configuração de impressão salva!" });
+    } catch (err) {
+      const mensagemErro = err instanceof Error ? err.message : "Erro ao salvar";
+      setMensagem({ tipo: "erro", texto: mensagemErro });
+    } finally {
+      setSalvandoImpressao(false);
     }
   }
 
   async function handleSelecionarLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    // limpa o input pra permitir selecionar o mesmo arquivo de novo depois, se precisar
     e.target.value = "";
     if (!file) return;
 
@@ -142,14 +176,10 @@ export default function ConfiguracoesPage() {
       setPizzaria(atualizado);
       const agora = Date.now();
       setLogoCacheBuster(agora);
-      window.localStorage.setItem(
-        "bella-pizza:logo-cache-buster",
-        String(agora),
-      );
+      window.localStorage.setItem("bella-pizza:logo-cache-buster", String(agora));
       setMensagem({ tipo: "sucesso", texto: "Logo atualizada com sucesso!" });
     } catch (err) {
-      const mensagemErro =
-        err instanceof Error ? err.message : "Erro ao enviar logo";
+      const mensagemErro = err instanceof Error ? err.message : "Erro ao enviar logo";
       setMensagem({ tipo: "erro", texto: mensagemErro });
     } finally {
       setEnviandoLogo(false);
@@ -191,9 +221,7 @@ export default function ConfiguracoesPage() {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <span className="text-xs text-gray-400 text-center px-1">
-                Sem logo
-              </span>
+              <span className="text-xs text-gray-400 text-center px-1">Sem logo</span>
             )}
           </div>
           <div>
@@ -217,18 +245,27 @@ export default function ConfiguracoesPage() {
         </div>
       </div>
 
+      {/* Card: Identidade */}
       <form
-        onSubmit={handleSalvar}
-        className="space-y-5 bg-white border border-gray-200 rounded-xl p-6"
+        onSubmit={handleSalvarIdentidade}
+        className="space-y-5 bg-white border border-gray-200 rounded-xl p-6 mb-5"
       >
+        <div>
+          <h2 className="text-base font-semibold text-gray-900">Identidade</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Nome e link público do cardápio.
+          </p>
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Nome da pizzaria
           </label>
           <input
-            name="nome"
-            value={form.nome}
-            onChange={handleChange}
+            value={formIdentidade.nome}
+            onChange={(e) =>
+              setFormIdentidade((prev) => ({ ...prev, nome: e.target.value }))
+            }
             required
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
           />
@@ -243,9 +280,10 @@ export default function ConfiguracoesPage() {
               {typeof window !== "undefined" ? window.location.origin : ""}/
             </span>
             <input
-              name="slug"
-              value={form.slug}
-              onChange={handleChange}
+              value={formIdentidade.slug}
+              onChange={(e) =>
+                setFormIdentidade((prev) => ({ ...prev, slug: e.target.value }))
+              }
               required
               className="flex-1 min-w-0 px-3 py-2 text-sm focus:outline-none"
             />
@@ -254,9 +292,8 @@ export default function ConfiguracoesPage() {
             type="button"
             onClick={() => {
               navigator.clipboard.writeText(
-                `${window.location.origin}/${form.slug}`,
+                `${window.location.origin}/${formIdentidade.slug}`,
               );
-              // se quiser feedback visual, dá pra trocar isso por um toast/estado de "Copiado!"
             }}
             className="mt-1.5 text-xs text-red-600 hover:text-red-700 font-medium"
           >
@@ -264,43 +301,41 @@ export default function ConfiguracoesPage() {
           </button>
         </div>
 
+        <button
+          type="submit"
+          disabled={salvandoIdentidade}
+          className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white font-medium py-2.5 rounded-lg transition"
+        >
+          {salvandoIdentidade ? "Salvando..." : "Salvar identidade"}
+        </button>
+      </form>
+
+      {/* Card: Entrega e contato */}
+      <form
+        onSubmit={handleSalvarEntrega}
+        className="space-y-5 bg-white border border-gray-200 rounded-xl p-6 mb-5"
+      >
+        <div>
+          <h2 className="text-base font-semibold text-gray-900">Entrega e contato</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Telefone, endereço da pizzaria e taxa de entrega cobrada do cliente.
+          </p>
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Telefone
           </label>
           <input
-            name="telefone"
-            value={form.telefone}
-            onChange={handleChange}
+            value={formEntrega.telefone}
+            onChange={(e) =>
+              setFormEntrega((prev) => ({ ...prev, telefone: e.target.value }))
+            }
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Largura do cupom de impressão
-          </label>
-          <select
-            name="larguraCupom"
-            value={form.larguraCupom}
-            onChange={(e) =>
-              setForm((prev) => ({
-                ...prev,
-                larguraCupom: e.target.value as "58mm" | "80mm",
-              }))
-            }
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-          >
-            <option value="58mm">58mm</option>
-            <option value="80mm">80mm</option>
-          </select>
-          <p className="text-xs text-gray-500 mt-1">
-            Escolha conforme a largura do rolo de papel da sua impressora
-            térmica.
-          </p>
-        </div>
-
-        <div className="border-t border-gray-100 pt-5">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Endereço atual
           </label>
@@ -309,8 +344,8 @@ export default function ConfiguracoesPage() {
           </p>
 
           <p className="text-xs text-gray-500 mb-2">
-            Preencha os campos abaixo para atualizar o endereço (isso substitui
-            o endereço atual):
+            Preencha os campos abaixo para atualizar o endereço (isso substitui o
+            endereço atual):
           </p>
 
           <div className="grid grid-cols-2 gap-3">
@@ -360,23 +395,81 @@ export default function ConfiguracoesPage() {
           </div>
         </div>
 
-        <div>
+        <div className="border-t border-gray-100 pt-5">
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Plano atual
+            Taxa de entrega
           </label>
-          <p className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 capitalize">
-            {pizzaria?.plano}
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="0,00"
+            value={formEntrega.taxaEntrega}
+            onChange={(e) =>
+              setFormEntrega((prev) => ({ ...prev, taxaEntrega: e.target.value }))
+            }
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Deixe em branco para não cobrar taxa de entrega.
           </p>
         </div>
 
         <button
           type="submit"
-          disabled={salvando}
+          disabled={salvandoEntrega}
           className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white font-medium py-2.5 rounded-lg transition"
         >
-          {salvando ? "Salvando..." : "Salvar alterações"}
+          {salvandoEntrega ? "Salvando..." : "Salvar entrega e contato"}
         </button>
       </form>
+
+      {/* Card: Impressão */}
+      <form
+        onSubmit={handleSalvarImpressao}
+        className="space-y-5 bg-white border border-gray-200 rounded-xl p-6 mb-5"
+      >
+        <div>
+          <h2 className="text-base font-semibold text-gray-900">Impressão</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Configuração da impressora térmica de cupons.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Largura do cupom de impressão
+          </label>
+          <select
+            value={larguraCupom}
+            onChange={(e) => setLarguraCupom(e.target.value as "58mm" | "80mm")}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+          >
+            <option value="58mm">58mm</option>
+            <option value="80mm">80mm</option>
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            Escolha conforme a largura do rolo de papel da sua impressora térmica.
+          </p>
+        </div>
+
+        <button
+          type="submit"
+          disabled={salvandoImpressao}
+          className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white font-medium py-2.5 rounded-lg transition"
+        >
+          {salvandoImpressao ? "Salvando..." : "Salvar impressão"}
+        </button>
+      </form>
+
+      <div className="bg-white border border-gray-200 rounded-xl p-6">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Plano atual
+        </label>
+        <p className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 capitalize">
+          {pizzaria?.plano}
+        </p>
+      </div>
     </div>
   );
 }

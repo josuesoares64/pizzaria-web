@@ -9,21 +9,22 @@ export function CartInitializer() {
   const dispatch = useAppDispatch();
   const items = useAppSelector((state) => state.cart.items);
   const pizzariaId = useAppSelector((state) => state.cart.pizzariaId);
+  const pizzariaSlug = useAppSelector((state) => state.cart.pizzariaSlug);
   const hidratado = useRef(false);
 
   useEffect(() => {
     const ativa = lerPizzariaAtiva();
     if (ativa) {
-      dispatch(hydrate({ pizzariaId: ativa, items: lerCarrinhoSalvo(ativa) }));
+      dispatch(hydrate({ pizzariaId: ativa.pizzariaId, pizzariaSlug: ativa.slug, items: lerCarrinhoSalvo(ativa.pizzariaId) }));
     }
     hidratado.current = true;
   }, [dispatch]);
 
   useEffect(() => {
     if (!hidratado.current) return;
-    if (!pizzariaId) return;
-    salvarCarrinho(pizzariaId, items);
-  }, [items, pizzariaId]);
+    if (!pizzariaId || !pizzariaSlug) return;
+    salvarCarrinho(pizzariaId, pizzariaSlug, items);
+  }, [items, pizzariaId, pizzariaSlug]);
 
   return null;
 }

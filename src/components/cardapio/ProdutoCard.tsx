@@ -5,6 +5,7 @@ import { Produto } from '@/types/produto';
 import { Borda } from '@/types/borda';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { addItem } from '@/store/slices/cartSlice';
+import { FiPlus, FiImage } from 'react-icons/fi';
 import { PizzaCustomizationModal } from './PizzaCustomizationModal';
 
 interface ProdutoCardProps {
@@ -58,14 +59,18 @@ export function ProdutoCard({ produto, todasPizzas, bordas, pizzariaId, modalAbe
 
   return (
     <>
-      <div className="border rounded-xl p-4 flex gap-4 items-center bg-white shadow-sm hover:shadow-md transition-shadow">
-        {produto.imagem_url && (
-          <img src={produto.imagem_url} alt={produto.nome} className="w-20 h-20 object-cover rounded-lg flex-shrink-0" />
+      <div className="group border border-gray-100 rounded-2xl p-4 flex gap-4 items-center bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+        {produto.imagem_url ? (
+          <img src={produto.imagem_url} alt={produto.nome} className="w-20 h-20 object-cover rounded-xl flex-shrink-0" />
+        ) : (
+          <div className="w-20 h-20 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center flex-shrink-0 text-gray-300">
+            <FiImage size={22} />
+          </div>
         )}
         <div className="flex-1 min-w-0">
           <p className="font-medium text-gray-900">{produto.nome}</p>
-          {produto.descricao && <p className="text-sm text-gray-500 line-clamp-2">{produto.descricao}</p>}
-          <p className="text-sm font-semibold mt-1 text-gray-900">
+          {produto.descricao && <p className="text-sm text-gray-500 line-clamp-2 mt-0.5">{produto.descricao}</p>}
+          <p className="text-sm font-semibold mt-1.5 text-gray-900">
             {ehPizza
               ? menorPreco !== undefined ? `A partir de ${formatarPreco(menorPreco)}` : 'Em breve'
               : formatarPreco(produto.preco ?? '0')}
@@ -74,8 +79,9 @@ export function ProdutoCard({ produto, todasPizzas, bordas, pizzariaId, modalAbe
         <button
           onClick={handleAdicionar}
           disabled={ehPizza && menorPreco === undefined}
-          className="bg-red-600 text-white text-sm font-medium rounded-lg px-4 py-2 hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+          className="bg-red-600 text-white text-sm font-medium rounded-full pl-3 pr-4 py-2 hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 flex items-center gap-1"
         >
+          <FiPlus size={16} />
           Adicionar
         </button>
       </div>

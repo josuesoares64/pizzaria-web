@@ -99,7 +99,6 @@ export default function PedidosKanban() {
   }
 
   function handlePedidoImpressoAutomaticamente(pedido: Order) {
-    // Atualização otimista: marca localmente como impresso, pra fila não pegar de novo antes do próximo polling
     setPedidos((prev) =>
       prev.map((p) => (p.id === pedido.id ? { ...p, impresso_em: new Date().toISOString() } : p))
     );
@@ -253,6 +252,52 @@ export default function PedidosKanban() {
   );
 }
 
+function TipoPedidoBanner({
+  pedido,
+  enderecoCompleto,
+}: {
+  pedido: Order;
+  enderecoCompleto: string | null;
+}) {
+  if (pedido.tipo_pedido === "entrega") {
+    return (
+      <div className="flex items-start gap-2.5 bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded-lg px-3 py-2 mb-2.5 shadow-sm">
+        <span className="text-lg leading-none mt-0.5">🚚</span>
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-wide leading-none mb-1">Entrega</p>
+          <p className="text-xs text-white/90 leading-snug break-words">{enderecoCompleto}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (pedido.tipo_pedido === "retirada") {
+    return (
+      <div className="flex items-center gap-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg px-3 py-2 mb-2.5 shadow-sm">
+        <span className="text-lg leading-none">🏪</span>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide leading-none mb-1">Retirada no balcão</p>
+          <p className="text-xs text-white/90 leading-snug">Cliente vai buscar na loja</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (pedido.tipo_pedido === "mesa") {
+    return (
+      <div className="flex items-center gap-2.5 bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white rounded-lg px-3 py-2 mb-2.5 shadow-sm">
+        <span className="text-lg leading-none">🍽️</span>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide leading-none mb-1">Mesa {pedido.numero_mesa}</p>
+          <p className="text-xs text-white/90 leading-snug">Consumo no local</p>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 function PedidoCard({
   pedido,
   corBorda,
@@ -272,14 +317,17 @@ function PedidoCard({
   const totalNumero = Number(pedido.total);
   const trocoParaNumero = pedido.troco_para ? Number(pedido.troco_para) : null;
 
-  const enderecoCompleto = [
-    `${pedido.endereco_rua}, ${pedido.endereco_numero}`,
-    pedido.endereco_bairro,
-    pedido.endereco_complemento,
-    pedido.endereco_referencia ? `Ref: ${pedido.endereco_referencia}` : null,
-  ]
-    .filter(Boolean)
-    .join(" — ");
+  const enderecoCompleto =
+    pedido.tipo_pedido === "entrega"
+      ? [
+          `${pedido.endereco_rua}, ${pedido.endereco_numero}`,
+          pedido.endereco_bairro,
+          pedido.endereco_complemento,
+          pedido.endereco_referencia ? `Ref: ${pedido.endereco_referencia}` : null,
+        ]
+          .filter(Boolean)
+          .join(" — ")
+      : null;
 
   return (
     <div className={`bg-white rounded-lg border-l-4 ${corBorda} border border-neutral-200 shadow-sm p-3`}>
@@ -301,6 +349,8 @@ function PedidoCard({
           </button>
         </div>
       </div>
+
+      <TipoPedidoBanner pedido={pedido} enderecoCompleto={enderecoCompleto} />
 
       <div className="mb-2 pb-2 border-b border-neutral-100">
         <p className="text-xs font-medium text-neutral-500 mb-1">
@@ -329,7 +379,7 @@ function PedidoCard({
         </div>
       )}
 
-      <p className="text-xs text-neutral-500 mb-2">📍 {enderecoCompleto}</p>
+      {/* Endereço, retirada e mesa agora aparecem no banner no topo do card */}
 
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-semibold text-neutral-800">

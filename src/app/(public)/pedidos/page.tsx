@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { orderService } from '@/server/order.service';
 import { Order, StatusPedido } from '@/types/order';
-import { FiLoader, FiAlertTriangle, FiChevronDown, FiPackage } from 'react-icons/fi';
+import { FiLoader, FiAlertTriangle, FiChevronDown, FiPackage, FiMapPin, FiShoppingBag, FiGrid } from 'react-icons/fi';
 
 function formatarPreco(valor: string | number) {
   return Number(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -26,6 +26,12 @@ const statusConfig: Record<StatusPedido, { label: string; className: string }> =
   saiu_para_entrega: { label: 'Saiu para entrega', className: 'bg-purple-100 text-purple-700' },
   entregue: { label: 'Entregue', className: 'bg-green-100 text-green-700' },
   cancelado: { label: 'Cancelado', className: 'bg-red-100 text-red-700' },
+};
+
+const tipoPedidoConfig: Record<string, { label: string; icone: React.ReactNode }> = {
+  entrega: { label: 'Entrega', icone: <FiMapPin size={12} /> },
+  retirada: { label: 'Retirada', icone: <FiShoppingBag size={12} /> },
+  mesa: { label: 'Mesa', icone: <FiGrid size={12} /> },
 };
 
 function nomeItem(item: Order['itens'][number]) {
@@ -94,6 +100,7 @@ export default function PedidosPage() {
         {pedidos.map((pedido) => {
           const aberto = expandidoId === pedido.id;
           const status = statusConfig[pedido.status];
+          const tipoPedido = tipoPedidoConfig[pedido.tipo_pedido] ?? tipoPedidoConfig.entrega;
 
           return (
             <div key={pedido.id} className="border rounded-lg overflow-hidden">
@@ -103,7 +110,14 @@ export default function PedidosPage() {
               >
                 <div>
                   <p className="font-semibold text-gray-900">{pedido.pizzaria.nome}</p>
-                  <p className="text-xs text-gray-500">{formatarData(pedido.createdAt)}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-xs text-gray-500">{formatarData(pedido.createdAt)}</p>
+                    <span className="flex items-center gap-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-full px-2 py-0.5">
+                      {tipoPedido.icone}
+                      {tipoPedido.label}
+                      {pedido.tipo_pedido === 'mesa' && pedido.numero_mesa ? ` ${pedido.numero_mesa}` : ''}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${status.className}`}>
@@ -142,14 +156,42 @@ export default function PedidosPage() {
                     ))}
                   </div>
 
-                  <div className="border-t pt-3 text-sm text-gray-600">
-                    <p className="font-medium text-gray-700 mb-1">Endereço de entrega</p>
-                    <p>
-                      {pedido.endereco_rua}, {pedido.endereco_numero} — {pedido.endereco_bairro}
-                    </p>
-                    {pedido.endereco_complemento && <p>{pedido.endereco_complemento}</p>}
-                    <p>CEP: {pedido.endereco_cep}</p>
-                  </div>
+                  {pedido.tipo_pedido === 'entrega' && (
+                    <div className="border-t pt-3 text-sm text-gray-600">
+                      <p className="font-medium text-gray-700 mb-1">Endereço de entrega</p>
+                      <p>
+                        {pedido.endereco_rua}, {pedido.endereco_numero} — {pedido.endereco_bairro}
+                      </p>
+                      {pedido.endereco_complemento && <p>{pedido.endereco_complemento}</p>}
+                      <p>CEP: {pedido.endereco_cep}</p>
+                    </div>
+                  )}
+
+                  {pedido.tipo_pedido === 'retirada' && (
+                    <div className="border-t pt-3">
+                      <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5">
+                        <FiShoppingBag className="text-blue-600 shrink-0 mt-0.5" size={16} />
+                        <div>
+                          <p className="text-sm font-semibold text-blue-800">Retirada no local</p>
+                          <p className="text-xs text-blue-700 mt-0.5">
+                            Aguarde a confirmação do pedido e retire diretamente no balcão da pizzaria.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {pedido.tipo_pedido === 'mesa' && (
+                    <div className="border-t pt-3">
+                      <div className="flex items-start gap-2.5 bg-purple-50 border border-purple-100 rounded-lg px-3 py-2.5">
+                        <FiGrid className="text-purple-600 shrink-0 mt-0.5" size={16} />
+                        <div>
+                          <p className="text-sm font-semibold text-purple-800">Consumo no local</p>
+                          <p className="text-xs text-purple-700 mt-0.5">Mesa {pedido.numero_mesa}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {pedido.observacoes && (
                     <div className="border-t mt-3 pt-3 text-sm text-gray-600">
