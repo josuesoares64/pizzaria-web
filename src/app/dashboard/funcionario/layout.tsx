@@ -22,7 +22,7 @@ export default function FuncionarioLayout({ children }: { children: ReactNode })
     <div className="flex min-h-screen bg-neutral-50">
       <div className="md:hidden fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 py-3 bg-white border-b border-neutral-200">
         <span className="text-base font-semibold tracking-tight text-red-600">
-          Bella Pizza
+          Sistema Fornomenu
         </span>
         <button
           onClick={() => setMenuAberto(true)}
@@ -53,7 +53,7 @@ export default function FuncionarioLayout({ children }: { children: ReactNode })
         <div className="px-5 py-6 border-b border-neutral-100 flex items-center justify-between">
           <div>
             <span className="text-lg font-semibold tracking-tight text-red-600">
-              Bella Pizza
+              Sistema Fornomenu
             </span>
             <p className="text-xs text-neutral-400 mt-0.5">Painel do funcionário</p>
           </div>

@@ -34,7 +34,7 @@ export function Header() {
             >
               <FiArrowLeft size={20} />
             </button>
-            <span className="font-bold text-lg text-red-600">Fornohub</span>
+            <span className="font-bold text-lg text-red-600">FornoMenu</span>
           </div>
 
           <div className="flex items-center gap-3">

@@ -1,7 +1,7 @@
 import { CartItem } from '@/types/carrinho';
 
-const ACTIVE_PIZZARIA_KEY = 'bella-pizza-cart-active';
-const cartKey = (pizzariaId: string) => `bella-pizza-cart:${pizzariaId}`;
+const ACTIVE_PIZZARIA_KEY = 'forno-menu-cart-active';
+const cartKey = (pizzariaId: string) => `bella-pizz-cart:${pizzariaId}`;
 
 interface PizzariaAtiva {
   pizzariaId: string;

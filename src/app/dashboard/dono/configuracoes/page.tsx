@@ -58,7 +58,7 @@ export default function ConfiguracoesPage() {
     }
     carregar();
 
-    const salvo = window.localStorage.getItem("bella-pizza:logo-cache-buster");
+    const salvo = window.localStorage.getItem("forno-menu:logo-cache-buster");
     if (salvo) setLogoCacheBuster(Number(salvo));
   }, []);
 
@@ -176,7 +176,7 @@ export default function ConfiguracoesPage() {
       setPizzaria(atualizado);
       const agora = Date.now();
       setLogoCacheBuster(agora);
-      window.localStorage.setItem("bella-pizza:logo-cache-buster", String(agora));
+      window.localStorage.setItem("bella-pizz:logo-cache-buster", String(agora));
       setMensagem({ tipo: "sucesso", texto: "Logo atualizada com sucesso!" });
     } catch (err) {
       const mensagemErro = err instanceof Error ? err.message : "Erro ao enviar logo";

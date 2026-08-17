@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Fornohub',
+  title: 'Fornomenu',
   description: 'A melhor da região',
 };
 

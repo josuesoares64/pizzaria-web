@@ -7,7 +7,7 @@ export function DashboardFooter() {
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-orange-500 text-white flex items-center justify-center text-sm font-bold shrink-0 ring-2 ring-white/10">JS</div>
           <div>
-            <p className="text-sm font-semibold text-white">Fornohub</p>
+            <p className="text-sm font-semibold text-white">Fornomenu</p>
             <p className="text-xs text-white/40">Desenvolvido e mantido por Josué Soares</p>
           </div>
         </div>
