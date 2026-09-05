@@ -9,6 +9,7 @@ import { FiMapPin, FiPhone, FiAlertTriangle, FiShoppingBag } from 'react-icons/f
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { trocarPizzaria } from '@/store/slices/cartSlice';
 import { lerCarrinhoSalvo } from '@/lib/cartStorage';
+import { WhatsappButton } from '@/components/WhatsappButton';
 
 export default function PizzariaPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -208,6 +209,10 @@ export default function PizzariaPage() {
           ))
         )}
       </div>
+      <WhatsappButton
+  telefone={pizzaria.telefone}
+  mensagem={`Olá! Tenho uma dúvida sobre o cardápio da ${pizzaria.nome}.`}
+/>
     </div>
   );
 }

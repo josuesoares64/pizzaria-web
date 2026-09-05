@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
+import { WhatsappButton } from "@/components/WhatsappButton";
 
 const NAV_ITEMS = [
   { href: "/dashboard/funcionario/pedidos", label: "Pedidos" },
@@ -90,6 +91,11 @@ export default function FuncionarioLayout({ children }: { children: ReactNode })
       </aside>
 
       <main className="flex-1 p-6 pt-20 md:pt-6">{children}</main>
+
+      <WhatsappButton
+        telefone="88981185172"
+        mensagem="Olá! Preciso de suporte com o Fornomenu."
+      />
     </div>
   );
 }

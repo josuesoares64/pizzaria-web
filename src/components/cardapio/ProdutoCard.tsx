@@ -5,7 +5,7 @@ import { Produto } from '@/types/produto';
 import { Borda } from '@/types/borda';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { addItem } from '@/store/slices/cartSlice';
-import { FiPlus, FiImage } from 'react-icons/fi';
+import { FiPlus } from 'react-icons/fi';
 import { PizzaCustomizationModal } from './PizzaCustomizationModal';
 
 interface ProdutoCardProps {
@@ -60,12 +60,8 @@ export function ProdutoCard({ produto, todasPizzas, bordas, pizzariaId, modalAbe
   return (
     <>
       <div className="group border border-gray-100 rounded-2xl p-4 flex gap-4 items-center bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-        {produto.imagem_url ? (
+        {produto.imagem_url && (
           <img src={produto.imagem_url} alt={produto.nome} className="w-20 h-20 object-cover rounded-xl flex-shrink-0" />
-        ) : (
-          <div className="w-20 h-20 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center flex-shrink-0 text-gray-300">
-            <FiImage size={22} />
-          </div>
         )}
         <div className="flex-1 min-w-0">
           <p className="font-medium text-gray-900">{produto.nome}</p>
