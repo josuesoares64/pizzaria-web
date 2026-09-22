@@ -33,6 +33,12 @@ export default function ReciboPedido({
 
   const temEndereco = Boolean(pedido.endereco_rua && pedido.endereco_numero);
 
+  const subtotalNumero = pedido.itens.reduce((soma, item) => soma + Number(item.subtotal), 0);
+  const taxaEntregaNumero =
+    pedido.tipo_pedido === "entrega" && pedido.taxa_entrega !== undefined
+      ? Number(pedido.taxa_entrega)
+      : null;
+
   return (
     <div
       className={`font-mono text-black bg-white mx-auto ${
@@ -93,6 +99,19 @@ export default function ReciboPedido({
       )}
 
       <div className="border-t border-dashed border-black my-1" />
+
+      {taxaEntregaNumero !== null && (
+        <>
+          <div className="flex justify-between">
+            <span>Subtotal</span>
+            <span>{formatarMoeda(subtotalNumero)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Taxa de entrega</span>
+            <span>{taxaEntregaNumero === 0 ? "Grátis" : formatarMoeda(taxaEntregaNumero)}</span>
+          </div>
+        </>
+      )}
 
       <div className="flex justify-between font-bold">
         <span>TOTAL</span>

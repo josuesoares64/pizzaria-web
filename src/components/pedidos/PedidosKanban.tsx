@@ -317,6 +317,14 @@ function PedidoCard({
   const totalNumero = Number(pedido.total);
   const trocoParaNumero = pedido.troco_para ? Number(pedido.troco_para) : null;
 
+  // Subtotal vem sempre da soma dos itens (fonte confiável, independe de taxa),
+  // e a taxa de entrega vem direto do snapshot salvo no pedido.
+  const subtotalNumero = pedido.itens.reduce((soma, item) => soma + Number(item.subtotal), 0);
+  const taxaEntregaNumero =
+    pedido.tipo_pedido === "entrega" && pedido.taxa_entrega !== undefined
+      ? Number(pedido.taxa_entrega)
+      : null;
+
   const enderecoCompleto =
     pedido.tipo_pedido === "entrega"
       ? [
@@ -380,6 +388,19 @@ function PedidoCard({
       )}
 
       {/* Endereço, retirada e mesa agora aparecem no banner no topo do card */}
+
+      {pedido.tipo_pedido === "entrega" && taxaEntregaNumero !== null && (
+        <div className="mb-2 pb-2 border-b border-neutral-100 text-xs text-neutral-500 space-y-0.5">
+          <div className="flex justify-between">
+            <span>Subtotal</span>
+            <span>{formatarMoeda(subtotalNumero)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Taxa de entrega</span>
+            <span>{taxaEntregaNumero === 0 ? "Grátis" : formatarMoeda(taxaEntregaNumero)}</span>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-semibold text-neutral-800">

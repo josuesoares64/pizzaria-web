@@ -28,6 +28,7 @@ export interface CriarPedidoInput {
   observacoes?: string;
   tipo_pedido: TipoPedido;
   endereco?: Endereco;
+  localidade_id?: string;
   numero_mesa?: string;
   itens: OrderItemInput[];
 }
@@ -72,6 +73,7 @@ export interface Order {
   endereco_bairro?: string;
   endereco_complemento?: string;
   endereco_referencia?: string;
+  taxa_entrega?: string;
   total: string;
   itens: OrderItem[];
   createdAt: string;

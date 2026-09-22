@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { clearCart } from '@/store/slices/cartSlice';
 import { enderecoService } from '@/server/endereco.service';
 import { orderService } from '@/server/order.service';
-import { pizzariaService } from '@/server/pizzaria.service';
+import { entregaService, LocalidadeTaxa } from '@/server/entrega.service';
 import { Endereco } from '@/types/endereco';
 import { FormaPagamento, TipoPedido } from '@/types/order';
 import { FiMapPin, FiLoader, FiAlertTriangle, FiShoppingBag, FiGrid } from 'react-icons/fi';
@@ -24,6 +24,8 @@ const enderecoVazio: Endereco = {
   referencia: '',
 };
 
+const OUTRO_BAIRRO = '__outro__';
+
 const tiposPedido: { valor: TipoPedido; label: string; icone: React.ReactNode }[] = [
   { valor: 'entrega', label: 'Entrega', icone: <FiMapPin size={16} /> },
   { valor: 'retirada', label: 'Retirada', icone: <FiShoppingBag size={16} /> },
@@ -35,7 +37,6 @@ export default function CheckoutPage() {
   const dispatch = useAppDispatch();
   const items = useAppSelector((state) => state.cart.items);
   const pizzariaId = useAppSelector((state) => state.cart.pizzariaId);
-  const pizzariaSlug = useAppSelector((state) => state.cart.pizzariaSlug);
 
   const [tipoPedido, setTipoPedido] = useState<TipoPedido>('entrega');
   const [numeroMesa, setNumeroMesa] = useState('');
@@ -45,11 +46,31 @@ export default function CheckoutPage() {
   const [observacoes, setObservacoes] = useState('');
 
   const [carregandoEndereco, setCarregandoEndereco] = useState(true);
-  const [taxaEntrega, setTaxaEntrega] = useState<number | null>(null);
+
+  // ---- Localidade e taxa de entrega ----
+  // A seleção guarda o ID da localidade cadastrada (nunca o nome/texto do bairro).
+  // Isso é o que evita que o cliente "burle" a taxa: só um ID que existe de fato
+  // na tabela da pizzaria consegue puxar uma taxa diferente da padrão — o texto
+  // digitado no campo "outro bairro" nunca é usado pra calcular nada.
+  const [localidades, setLocalidades] = useState<LocalidadeTaxa[]>([]);
+  const [taxaPadrao, setTaxaPadrao] = useState<number | null>(null);
+  const [carregandoLocalidades, setCarregandoLocalidades] = useState(true);
+  const [selecaoLocalidadeId, setSelecaoLocalidadeId] = useState<string>(''); // id cadastrado, ou OUTRO_BAIRRO, ou '' (nada escolhido)
+
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState('');
 
   const subtotal = items.reduce((soma, item) => soma + item.precoUnitario * item.quantidade, 0);
+
+  // Taxa efetiva: só existe taxa "de bairro" se o ID escolhido bater com uma
+  // localidade cadastrada. "Outro" ou nada selecionado cai na taxa padrão.
+  const taxaEntrega = useMemo(() => {
+    if (!selecaoLocalidadeId) return null;
+    if (selecaoLocalidadeId === OUTRO_BAIRRO) return taxaPadrao;
+    const encontrada = localidades.find((l) => l.id === selecaoLocalidadeId);
+    return encontrada ? Number(encontrada.taxa) : taxaPadrao;
+  }, [selecaoLocalidadeId, localidades, taxaPadrao]);
+
   const total = tipoPedido === 'entrega' && taxaEntrega ? subtotal + taxaEntrega : subtotal;
 
   useEffect(() => {
@@ -57,6 +78,8 @@ export default function CheckoutPage() {
       try {
         const data = await enderecoService.buscarMeu();
         setEndereco(data);
+        // A pré-seleção do dropdown por ID só acontece depois que as localidades
+        // carregarem (precisamos casar o bairro salvo com o ID correspondente).
       } catch {
         // Sem endereço cadastrado ainda — mantém o formulário vazio pro cliente preencher
       } finally {
@@ -66,21 +89,52 @@ export default function CheckoutPage() {
     carregarEndereco();
   }, []);
 
+  // Lista de localidades cadastradas pela pizzaria + taxa padrão, pro cliente escolher no checkout
   useEffect(() => {
-    async function carregarTaxa() {
-      if (!pizzariaSlug) return;
+    async function carregarLocalidades() {
+      if (!pizzariaId) return;
       try {
-        const data = await pizzariaService.buscarPorSlug(pizzariaSlug);
-        setTaxaEntrega(data.taxa_entrega !== null ? Number(data.taxa_entrega) : null);
+        const dados = await entregaService.listarLocalidades(pizzariaId);
+        setLocalidades(dados.localidades);
+        setTaxaPadrao(dados.taxaPadrao);
+
+        // Se o endereço salvo já tem um bairro, tenta achar o ID correspondente
+        // pra pré-selecionar o dropdown. Se não achar (bairro não está mais
+        // cadastrado, ou nunca esteve), cai em "outro" mantendo o texto salvo.
+        setEndereco((enderecoAtual) => {
+          if (enderecoAtual.bairro) {
+            const correspondente = dados.localidades.find(
+              (l) => l.bairro === enderecoAtual.bairro
+            );
+            setSelecaoLocalidadeId(correspondente ? correspondente.id : OUTRO_BAIRRO);
+          }
+          return enderecoAtual;
+        });
       } catch {
-        setTaxaEntrega(null);
+        setLocalidades([]);
+        setTaxaPadrao(null);
+      } finally {
+        setCarregandoLocalidades(false);
       }
     }
-    carregarTaxa();
-  }, [pizzariaSlug]);
+    carregarLocalidades();
+  }, [pizzariaId]);
 
   function atualizarCampo(campo: keyof Endereco, valor: string) {
     setEndereco((prev) => ({ ...prev, [campo]: valor }));
+  }
+
+  function handleSelecionarLocalidade(valor: string) {
+    setSelecaoLocalidadeId(valor);
+    if (valor !== OUTRO_BAIRRO) {
+      // Localidade veio da lista cadastrada — o nome oficial vai pro endereço
+      // (só como informação de exibição/entrega, não é mais usado pra calcular taxa)
+      const localidade = localidades.find((l) => l.id === valor);
+      setEndereco((prev) => ({ ...prev, bairro: localidade?.bairro || '' }));
+    } else {
+      // "Outro" — limpa pra o cliente digitar o nome real do bairro dele
+      setEndereco((prev) => ({ ...prev, bairro: '' }));
+    }
   }
 
   function handleTrocarTipoPedido(tipo: TipoPedido) {
@@ -131,6 +185,11 @@ export default function CheckoutPage() {
         await enderecoService.salvar(endereco);
       }
 
+      const localidadeIdValida =
+        selecaoLocalidadeId && selecaoLocalidadeId !== OUTRO_BAIRRO
+          ? selecaoLocalidadeId
+          : undefined;
+
       await orderService.criarPedido({
         pizzaria_id: pizzariaId,
         forma_pagamento: formaPagamento,
@@ -138,6 +197,7 @@ export default function CheckoutPage() {
         observacoes: observacoes || undefined,
         tipo_pedido: tipoPedido,
         endereco: tipoPedido === 'entrega' ? endereco : undefined,
+        localidade_id: tipoPedido === 'entrega' ? localidadeIdValida : undefined,
         numero_mesa: tipoPedido === 'mesa' ? numeroMesa.trim() : undefined,
         itens: items.map((item) => ({
           produto_id: item.produtoId,
@@ -204,10 +264,16 @@ export default function CheckoutPage() {
             <span className="text-gray-600 text-sm">Subtotal</span>
             <span className="text-sm">{formatarPreco(subtotal)}</span>
           </div>
-          {tipoPedido === 'entrega' && taxaEntrega !== null && (
+          {tipoPedido === 'entrega' && (
             <div className="flex justify-between px-1">
               <span className="text-gray-600 text-sm">Taxa de entrega</span>
-              <span className="text-sm">{formatarPreco(taxaEntrega)}</span>
+              <span className="text-sm">
+                {!selecaoLocalidadeId
+                  ? 'Selecione o bairro'
+                  : taxaEntrega !== null
+                    ? formatarPreco(taxaEntrega)
+                    : 'A calcular'}
+              </span>
             </div>
           )}
           <div className="flex justify-between mt-1 px-1">
@@ -245,6 +311,46 @@ export default function CheckoutPage() {
               <FiMapPin className="text-red-600" size={18} />
               Endereço de entrega
             </h2>
+
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Bairro
+              </label>
+              {carregandoLocalidades ? (
+                <p className="text-sm text-gray-400">Carregando bairros...</p>
+              ) : (
+                <select
+                  value={selecaoLocalidadeId}
+                  onChange={(e) => handleSelecionarLocalidade(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm bg-white"
+                >
+                  <option value="" disabled>
+                    Selecione seu bairro
+                  </option>
+                  {localidades.map((loc) => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.bairro}
+                    </option>
+                  ))}
+                  <option value={OUTRO_BAIRRO}>Meu bairro não está na lista</option>
+                </select>
+              )}
+            </div>
+
+            {selecaoLocalidadeId === OUTRO_BAIRRO && (
+              <div className="mb-3">
+                <input
+                  placeholder="Digite o nome do seu bairro"
+                  value={endereco.bairro}
+                  onChange={(e) => atualizarCampo('bairro', e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Como seu bairro não está cadastrado, será cobrada a taxa de entrega padrão.
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <input
                 placeholder="CEP"
@@ -262,12 +368,6 @@ export default function CheckoutPage() {
                 placeholder="Rua"
                 value={endereco.rua}
                 onChange={(e) => atualizarCampo('rua', e.target.value)}
-                className="col-span-2 border rounded-lg px-3 py-2 text-sm"
-              />
-              <input
-                placeholder="Bairro"
-                value={endereco.bairro}
-                onChange={(e) => atualizarCampo('bairro', e.target.value)}
                 className="col-span-2 border rounded-lg px-3 py-2 text-sm"
               />
               <input

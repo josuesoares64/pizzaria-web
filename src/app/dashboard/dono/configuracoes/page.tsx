@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { pizzariaService } from "@/server/pizzaria.service";
+import { localidadeTaxaService, LocalidadeTaxa } from "@/server/localidadeTaxa.service";
 import { PizzariaMe } from "@/types/pizzaria";
+import { FiTrash2, FiPlus, FiEdit2, FiCheck, FiX } from "react-icons/fi";
 
 export default function ConfiguracoesPage() {
   const [pizzaria, setPizzaria] = useState<PizzariaMe | null>(null);
@@ -30,6 +32,19 @@ export default function ConfiguracoesPage() {
     estado: "",
   });
   const [salvandoEntrega, setSalvandoEntrega] = useState(false);
+
+  // ---- Card: Bairros e taxas de entrega ----
+  const [localidades, setLocalidades] = useState<LocalidadeTaxa[]>([]);
+  const [carregandoLocalidades, setCarregandoLocalidades] = useState(true);
+  const [novoBairro, setNovoBairro] = useState("");
+  const [novaTaxa, setNovaTaxa] = useState("");
+  const [salvandoLocalidade, setSalvandoLocalidade] = useState(false);
+  const [excluindoId, setExcluindoId] = useState<string | null>(null);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [editBairro, setEditBairro] = useState("");
+  const [editTaxa, setEditTaxa] = useState("");
+  const [salvandoEdicaoId, setSalvandoEdicaoId] = useState<string | null>(null);
+  const [alternandoAtivoId, setAlternandoAtivoId] = useState<string | null>(null);
 
   // ---- Card: Impressão ----
   const [larguraCupom, setLarguraCupom] = useState<"58mm" | "80mm">("80mm");
@@ -60,6 +75,20 @@ export default function ConfiguracoesPage() {
 
     const salvo = window.localStorage.getItem("forno-menu:logo-cache-buster");
     if (salvo) setLogoCacheBuster(Number(salvo));
+  }, []);
+
+  useEffect(() => {
+    async function carregarLocalidades() {
+      try {
+        const dados = await localidadeTaxaService.listar();
+        setLocalidades(dados);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setCarregandoLocalidades(false);
+      }
+    }
+    carregarLocalidades();
   }, []);
 
   function handleEnderecoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -139,6 +168,114 @@ export default function ConfiguracoesPage() {
       setMensagem({ tipo: "erro", texto: mensagemErro });
     } finally {
       setSalvandoEntrega(false);
+    }
+  }
+
+  // ---- Adicionar bairro/taxa ----
+  async function handleAdicionarLocalidade(e: React.FormEvent) {
+    e.preventDefault();
+    if (!novoBairro.trim() || !novaTaxa.trim()) return;
+
+    setSalvandoLocalidade(true);
+    setMensagem(null);
+    try {
+      const criada = await localidadeTaxaService.criar({
+        bairro: novoBairro.trim(),
+        taxa: Number(novaTaxa),
+      });
+      setLocalidades((prev) =>
+        [...prev, criada].sort((a, b) => a.bairro.localeCompare(b.bairro)),
+      );
+      setNovoBairro("");
+      setNovaTaxa("");
+      setMensagem({ tipo: "sucesso", texto: "Bairro adicionado com sucesso!" });
+    } catch (err) {
+      const mensagemErro = err instanceof Error ? err.message : "Erro ao adicionar bairro";
+      setMensagem({ tipo: "erro", texto: mensagemErro });
+    } finally {
+      setSalvandoLocalidade(false);
+    }
+  }
+
+  // ---- Excluir bairro/taxa ----
+  async function handleExcluirLocalidade(id: string) {
+    const confirmar = window.confirm(
+      "Remover esse bairro? Pedidos que caírem nele voltam a usar a taxa padrão.",
+    );
+    if (!confirmar) return;
+
+    setExcluindoId(id);
+    setMensagem(null);
+    try {
+      await localidadeTaxaService.excluir(id);
+      setLocalidades((prev) => prev.filter((l) => l.id !== id));
+      setMensagem({ tipo: "sucesso", texto: "Bairro removido com sucesso!" });
+    } catch (err) {
+      const mensagemErro = err instanceof Error ? err.message : "Erro ao remover bairro";
+      setMensagem({ tipo: "erro", texto: mensagemErro });
+    } finally {
+      setExcluindoId(null);
+    }
+  }
+
+  // ---- Editar bairro/taxa ----
+  function handleIniciarEdicao(loc: LocalidadeTaxa) {
+    setEditandoId(loc.id);
+    setEditBairro(loc.bairro);
+    setEditTaxa(String(loc.taxa));
+  }
+
+  function handleCancelarEdicao() {
+    setEditandoId(null);
+    setEditBairro("");
+    setEditTaxa("");
+  }
+
+  async function handleSalvarEdicao(id: string) {
+    if (!editBairro.trim() || !editTaxa.trim()) return;
+
+    setSalvandoEdicaoId(id);
+    setMensagem(null);
+    try {
+      const atualizada = await localidadeTaxaService.atualizar(id, {
+        bairro: editBairro.trim(),
+        taxa: Number(editTaxa),
+      });
+      setLocalidades((prev) =>
+        prev
+          .map((l) => (l.id === id ? atualizada : l))
+          .sort((a, b) => a.bairro.localeCompare(b.bairro)),
+      );
+      setMensagem({ tipo: "sucesso", texto: "Bairro atualizado com sucesso!" });
+      handleCancelarEdicao();
+    } catch (err) {
+      const mensagemErro = err instanceof Error ? err.message : "Erro ao atualizar bairro";
+      setMensagem({ tipo: "erro", texto: mensagemErro });
+    } finally {
+      setSalvandoEdicaoId(null);
+    }
+  }
+
+  // ---- Ativar/Desativar bairro ----
+  async function handleAlternarAtivo(loc: LocalidadeTaxa) {
+    setAlternandoAtivoId(loc.id);
+    setMensagem(null);
+    try {
+      const atualizada = await localidadeTaxaService.atualizar(loc.id, {
+        ativo: !loc.ativo,
+      });
+      setLocalidades((prev) => prev.map((l) => (l.id === loc.id ? atualizada : l)));
+      setMensagem({
+        tipo: "sucesso",
+        texto: atualizada.ativo
+          ? "Bairro reativado — voltou a aparecer no checkout."
+          : "Bairro desativado — não aparece mais no checkout, mas o histórico é mantido.",
+      });
+    } catch (err) {
+      const mensagemErro = err instanceof Error ? err.message : "Erro ao atualizar status";
+      setMensagem({ tipo: "erro", texto: mensagemErro });
+    } finally {
+      setAlternandoAtivoId(null);
     }
   }
 
@@ -411,7 +548,8 @@ export default function ConfiguracoesPage() {
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
           />
           <p className="text-xs text-gray-500 mt-1">
-            Deixe em branco para não cobrar taxa de entrega.
+            Deixe em branco para não cobrar taxa de entrega. Essa é a taxa usada quando
+            o bairro do cliente não estiver na lista abaixo.
           </p>
         </div>
 
@@ -423,6 +561,177 @@ export default function ConfiguracoesPage() {
           {salvandoEntrega ? "Salvando..." : "Salvar entrega e contato"}
         </button>
       </form>
+
+      {/* Card: Bairros e taxas de entrega */}
+      <div className="space-y-5 bg-white border border-gray-200 rounded-xl p-6 mb-5">
+        <div>
+          <h2 className="text-base font-semibold text-gray-900">
+            Bairros e taxas de entrega
+          </h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Cadastre um valor diferente por bairro/localidade. Um bairro desativado
+            some do checkout, mas o histórico dos pedidos antigos é preservado.
+          </p>
+        </div>
+
+        {carregandoLocalidades ? (
+          <p className="text-sm text-gray-400">Carregando bairros...</p>
+        ) : (
+          <>
+            {localidades.length === 0 ? (
+              <p className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                Nenhum bairro cadastrado ainda.
+              </p>
+            ) : (
+              <div className="border border-gray-200 rounded-lg divide-y">
+                {localidades.map((loc) => {
+                  const emEdicao = editandoId === loc.id;
+
+                  return (
+                    <div
+                      key={loc.id}
+                      className={`flex items-center justify-between gap-3 px-3 py-2.5 text-sm ${
+                        !loc.ativo && !emEdicao ? "bg-gray-50" : ""
+                      }`}
+                    >
+                      {emEdicao ? (
+                        <div className="flex flex-1 items-center gap-2">
+                          <input
+                            value={editBairro}
+                            onChange={(e) => setEditBairro(e.target.value)}
+                            className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                            autoFocus
+                          />
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={editTaxa}
+                            onChange={(e) => setEditTaxa(e.target.value)}
+                            className="w-24 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSalvarEdicao(loc.id)}
+                            disabled={
+                              salvandoEdicaoId === loc.id ||
+                              !editBairro.trim() ||
+                              !editTaxa.trim()
+                            }
+                            className="text-green-600 hover:text-green-700 disabled:opacity-50 shrink-0"
+                            title="Salvar"
+                          >
+                            <FiCheck size={18} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCancelarEdicao}
+                            disabled={salvandoEdicaoId === loc.id}
+                            className="text-gray-400 hover:text-gray-600 disabled:opacity-50 shrink-0"
+                            title="Cancelar"
+                          >
+                            <FiX size={18} />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span
+                              className={`font-medium truncate ${
+                                loc.ativo ? "text-gray-700" : "text-gray-400"
+                              }`}
+                            >
+                              {loc.bairro}
+                            </span>
+                            {!loc.ativo && (
+                              <span className="shrink-0 text-[11px] font-medium text-gray-500 bg-gray-200 rounded-full px-2 py-0.5">
+                                Inativo
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className={loc.ativo ? "text-gray-600" : "text-gray-400"}>
+                              {Number(loc.taxa).toLocaleString("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              })}
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() => handleAlternarAtivo(loc)}
+                              disabled={alternandoAtivoId === loc.id}
+                              title={loc.ativo ? "Desativar bairro" : "Reativar bairro"}
+                              className={`relative w-9 h-5 rounded-full transition-colors disabled:opacity-50 ${
+                                loc.ativo ? "bg-red-600" : "bg-gray-300"
+                              }`}
+                            >
+                              <span
+                                className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                                  loc.ativo ? "translate-x-4" : "translate-x-0"
+                                }`}
+                              />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleIniciarEdicao(loc)}
+                              className="text-gray-400 hover:text-gray-700"
+                              title="Editar bairro"
+                            >
+                              <FiEdit2 size={15} />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleExcluirLocalidade(loc.id)}
+                              disabled={excluindoId === loc.id}
+                              className="text-red-500 hover:text-red-700 disabled:opacity-50"
+                              title="Remover bairro"
+                            >
+                              <FiTrash2 size={15} />
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <form
+              onSubmit={handleAdicionarLocalidade}
+              className="flex gap-2 items-start border-t border-gray-100 pt-4"
+            >
+              <input
+                placeholder="Nome do bairro"
+                value={novoBairro}
+                onChange={(e) => setNovoBairro(e.target.value)}
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="Taxa"
+                value={novaTaxa}
+                onChange={(e) => setNovaTaxa(e.target.value)}
+                className="w-28 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+              <button
+                type="submit"
+                disabled={salvandoLocalidade || !novoBairro.trim() || !novaTaxa.trim()}
+                className="shrink-0 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white rounded-lg px-3 py-2"
+                title="Adicionar bairro"
+              >
+                <FiPlus size={16} />
+              </button>
+            </form>
+          </>
+        )}
+      </div>
 
       {/* Card: Impressão */}
       <form
