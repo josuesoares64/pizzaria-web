@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { DashboardShell, NavItem } from "@/components/dashboard/Dashboardshell";
 
 const NAV_ITEMS: NavItem[] = [
+  { href: "/dashboard/dono", label: "Início" },
   { href: "/dashboard/dono/pedidos", label: "Pedidos" },
   { href: "/dashboard/dono/cardapio", label: "Cardápio" },
   { href: "/dashboard/dono/funcionarios", label: "Funcionários" },
