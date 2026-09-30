@@ -13,6 +13,14 @@ function pizzaSemPreco(produto: Produto): boolean {
   return produto.precos.every((p) => p.preco === null || p.preco === "");
 }
 
+// Converte string com vírgula ou ponto para número válido
+function tratarValorMoeda(valor: string | number | undefined | null): number | undefined {
+  if (valor === undefined || valor === null || valor === "") return undefined;
+  const str = String(valor).replace(",", ".");
+  const num = Number(str);
+  return isNaN(num) ? undefined : num;
+}
+
 function Toggle({
   checked,
   onChange,
@@ -26,7 +34,7 @@ function Toggle({
       role="switch"
       aria-checked={checked}
       onClick={onChange}
-      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
         checked ? "bg-red-600" : "bg-neutral-300"
       }`}
     >
@@ -48,14 +56,29 @@ function ModalShell({
   onFechar: () => void;
   children: React.ReactNode;
 }) {
+  // Fecha com ESC
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onFechar();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onFechar]);
+
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
-      <div className="bg-white rounded-lg w-full max-w-sm">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-100">
+    <div
+      onClick={onFechar}
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in duration-100"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden border border-neutral-200"
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-100 bg-neutral-50/60">
           <h2 className="text-sm font-semibold text-neutral-800">{titulo}</h2>
           <button
             onClick={onFechar}
-            className="text-neutral-400 hover:text-neutral-600 text-lg leading-none"
+            className="text-neutral-400 hover:text-neutral-600 text-lg leading-none p-1"
           >
             ×
           </button>
@@ -80,11 +103,15 @@ function EditarCategoriaModal({
   const [enviando, setEnviando] = useState(false);
 
   async function handleSalvar() {
-    if (!nome.trim()) return;
+    if (!nome.trim()) {
+      setErro("Informe o nome da categoria.");
+      return;
+    }
     setEnviando(true);
+    setErro(null);
     try {
       const atualizada = await categoriaService.atualizar(categoria.id, {
-        nome,
+        nome: nome.trim(),
         ativo: categoria.ativo,
       });
       onSalvo(atualizada);
@@ -99,23 +126,32 @@ function EditarCategoriaModal({
 
   return (
     <ModalShell titulo="Editar categoria" onFechar={onFechar}>
-      {erro && <p className="text-xs text-red-600">{erro}</p>}
+      {erro && (
+        <p className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-100">
+          {erro}
+        </p>
+      )}
       <input
         value={nome}
         onChange={(e) => setNome(e.target.value)}
         placeholder="Nome da categoria"
-        className="border border-neutral-200 rounded-md px-2 py-1.5 text-sm"
+        className="border border-neutral-300 focus:border-red-500 rounded-md px-2.5 py-1.5 text-sm focus:outline-none"
       />
-      <div className="flex gap-2 mt-1">
+      <div className="flex justify-end gap-2 mt-2">
         <button
-          onClick={handleSalvar}
-          disabled={enviando}
-          className="bg-red-600 text-white text-xs font-medium px-3 py-1.5 rounded-md disabled:opacity-50"
+          type="button"
+          onClick={onFechar}
+          className="text-xs text-neutral-600 hover:bg-neutral-100 px-3 py-1.5 rounded-md"
         >
-          Salvar
-        </button>
-        <button onClick={onFechar} className="text-xs text-neutral-500">
           Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={handleSalvar}
+          disabled={enviando || !nome.trim()}
+          className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-4 py-1.5 rounded-md disabled:opacity-50"
+        >
+          {enviando ? "Salvando..." : "Salvar"}
         </button>
       </div>
     </ModalShell>
@@ -133,7 +169,9 @@ function EditarProdutoModal({
 }) {
   const [nome, setNome] = useState(produto.nome);
   const [descricao, setDescricao] = useState(produto.descricao ?? "");
-  const [preco, setPreco] = useState(produto.preco ?? "");
+  const [preco, setPreco] = useState(
+    produto.preco !== undefined && produto.preco !== null ? String(produto.preco) : "",
+  );
   const [imagemUrl, setImagemUrl] = useState(produto.imagem_url ?? "");
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -141,16 +179,27 @@ function EditarProdutoModal({
   const inputImagemRef = useRef<HTMLInputElement>(null);
 
   async function handleSalvar() {
-    if (!nome.trim()) return;
+    if (!nome.trim()) {
+      setErro("Informe o nome do produto.");
+      return;
+    }
+
+    let precoNumerico: number | undefined = undefined;
+    if (produto.tipo === "simples") {
+      precoNumerico = tratarValorMoeda(preco);
+      if (precoNumerico === undefined || precoNumerico <= 0) {
+        setErro("Para produtos simples, informe um preço válido (ex: 12.90).");
+        return;
+      }
+    }
+
     setEnviando(true);
+    setErro(null);
     try {
       const atualizado = await produtoService.atualizar(produto.id, {
-        nome,
-        descricao: descricao || undefined,
-        preco:
-          produto.tipo === "simples" && preco !== ""
-            ? Number(preco)
-            : undefined,
+        nome: nome.trim(),
+        descricao: descricao.trim() || undefined,
+        preco: precoNumerico,
       });
       onSalvo(atualizado);
     } catch (e) {
@@ -184,10 +233,14 @@ function EditarProdutoModal({
 
   return (
     <ModalShell titulo="Editar produto" onFechar={onFechar}>
-      {erro && <p className="text-xs text-red-600">{erro}</p>}
+      {erro && (
+        <p className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-100">
+          {erro}
+        </p>
+      )}
 
       <div className="flex items-center gap-3">
-        <div className="w-16 h-16 rounded-md border border-neutral-200 bg-neutral-50 flex items-center justify-center overflow-hidden shrink-0">
+        <div className="w-16 h-16 rounded-lg border border-neutral-200 bg-neutral-50 flex items-center justify-center overflow-hidden shrink-0">
           {imagemUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -213,53 +266,80 @@ function EditarProdutoModal({
             type="button"
             onClick={() => inputImagemRef.current?.click()}
             disabled={enviandoImagem}
-            className="text-xs font-medium text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-50 rounded-md px-2.5 py-1.5"
+            className="text-xs font-semibold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-50 rounded-lg px-2.5 py-1.5 transition-colors"
           >
             {enviandoImagem ? "Enviando..." : "Alterar foto"}
           </button>
         </div>
       </div>
 
-      <input
-        value={nome}
-        onChange={(e) => setNome(e.target.value)}
-        placeholder="Nome do produto"
-        className="border border-neutral-200 rounded-md px-2 py-1.5 text-sm"
-      />
-      <input
-        value={descricao}
-        onChange={(e) => setDescricao(e.target.value)}
-        placeholder="Descrição (opcional)"
-        className="border border-neutral-200 rounded-md px-2 py-1.5 text-sm"
-      />
-      {produto.tipo === "simples" && (
+      <div>
+        <label className="text-[11px] font-medium text-neutral-500 mb-0.5 block">
+          Nome do produto *
+        </label>
         <input
-          value={preco}
-          onChange={(e) => setPreco(e.target.value)}
-          placeholder="Preço (ex: 12.90)"
-          type="number"
-          step="0.01"
-          className="border border-neutral-200 rounded-md px-2 py-1.5 text-sm"
+          value={nome}
+          onChange={(e) => setNome(e.target.value)}
+          placeholder="Ex: Pizza Calabresa Especial"
+          className="w-full border border-neutral-300 rounded-md px-2.5 py-1.5 text-sm focus:border-red-500 focus:outline-none"
         />
+      </div>
+
+      <div>
+        <label className="text-[11px] font-medium text-neutral-500 mb-0.5 block">
+          Descrição (opcional)
+        </label>
+        <textarea
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
+          placeholder="Ingredientes ou detalhes do item..."
+          rows={2}
+          className="w-full border border-neutral-300 rounded-md px-2.5 py-1.5 text-sm focus:border-red-500 focus:outline-none resize-none"
+        />
+      </div>
+
+      {produto.tipo === "simples" && (
+        <div>
+          <label className="text-[11px] font-medium text-neutral-500 mb-0.5 block">
+            Preço (R$) *
+          </label>
+          <input
+            value={preco}
+            onChange={(e) => setPreco(e.target.value)}
+            placeholder="Ex: 12.90"
+            type="text"
+            inputMode="decimal"
+            className="w-full border border-neutral-300 rounded-md px-2.5 py-1.5 text-sm focus:border-red-500 focus:outline-none"
+          />
+        </div>
       )}
+
       {produto.tipo === "pizza" && (
-        <Link
-          href={`/dashboard/dono/produtos/${produto.id}/precos`}
-          className="text-xs font-medium text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 rounded-md px-3 py-1.5 text-center"
-        >
-          Definir preços →
-        </Link>
+        <div className="pt-1">
+          <Link
+            href={`/dashboard/dono/produtos/${produto.id}/precos`}
+            className="block text-xs font-semibold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 rounded-lg px-3 py-2 text-center transition-colors"
+          >
+            Configurar preços por tamanho →
+          </Link>
+        </div>
       )}
-      <div className="flex gap-2 mt-1">
+
+      <div className="flex justify-end gap-2 mt-2">
         <button
-          onClick={handleSalvar}
-          disabled={enviando}
-          className="bg-red-600 text-white text-xs font-medium px-3 py-1.5 rounded-md disabled:opacity-50"
+          type="button"
+          onClick={onFechar}
+          className="text-xs text-neutral-600 hover:bg-neutral-100 px-3 py-1.5 rounded-md"
         >
-          Salvar
-        </button>
-        <button onClick={onFechar} className="text-xs text-neutral-500">
           Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={handleSalvar}
+          disabled={enviando || !nome.trim()}
+          className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-4 py-1.5 rounded-md disabled:opacity-50"
+        >
+          {enviando ? "Salvando..." : "Salvar"}
         </button>
       </div>
     </ModalShell>
@@ -273,13 +353,10 @@ export default function CardapioPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [expandida, setExpandida] = useState<string | null>(null);
   const [novaCategoriaNome, setNovaCategoriaNome] = useState("");
-  const [produtoFormAberto, setProdutoFormAberto] = useState<string | null>(
-    null,
-  ); // categoria_id
+  const [produtoFormAberto, setProdutoFormAberto] = useState<string | null>(null);
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
-  const [editandoCategoria, setEditandoCategoria] = useState<Categoria | null>(
-    null,
-  );
+  const [excluindoCategoriaId, setExcluindoCategoriaId] = useState<string | null>(null);
+  const [editandoCategoria, setEditandoCategoria] = useState<Categoria | null>(null);
   const [editandoProduto, setEditandoProduto] = useState<Produto | null>(null);
 
   const carregar = useCallback(async () => {
@@ -307,11 +384,12 @@ export default function CardapioPage() {
     if (!novaCategoriaNome.trim()) return;
     try {
       const nova = await categoriaService.criar({
-        nome: novaCategoriaNome,
+        nome: novaCategoriaNome.trim(),
         ativo: true,
       });
       setCategorias((prev) => [...prev, nova]);
       setNovaCategoriaNome("");
+      setExpandida(nova.id);
     } catch {
       setErro("Não foi possível criar a categoria.");
     }
@@ -327,6 +405,31 @@ export default function CardapioPage() {
     } catch {
       setCategorias(anterior);
       setErro("Não foi possível atualizar o status da categoria.");
+    }
+  }
+
+  async function handleExcluirCategoria(categoria: Categoria) {
+    const prodsDaCat = produtos.filter((p) => p.categoria_id === categoria.id);
+    if (prodsDaCat.length > 0) {
+      alert(`Esta categoria possui ${prodsDaCat.length} produto(s). Exclua ou mova os produtos antes de excluir a categoria.`);
+      return;
+    }
+
+    const confirmado = window.confirm(`Deseja realmente excluir a categoria "${categoria.nome}"?`);
+    if (!confirmado) return;
+
+    const anterior = categorias;
+    setExcluindoCategoriaId(categoria.id);
+    setCategorias((prev) => prev.filter((c) => c.id !== categoria.id));
+    try {
+      if ("excluir" in categoriaService && typeof categoriaService.excluir === "function") {
+        await categoriaService.excluir(categoria.id);
+      }
+    } catch {
+      setCategorias(anterior);
+      setErro("Não foi possível excluir a categoria.");
+    } finally {
+      setExcluindoCategoriaId(null);
     }
   }
 
@@ -364,35 +467,57 @@ export default function CardapioPage() {
     }
   }
 
-  if (carregando)
+  if (carregando) {
     return <p className="text-sm text-neutral-500">Carregando cardápio...</p>;
+  }
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-xl font-semibold text-neutral-800 mb-5">Cardápio</h1>
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <h1 className="text-xl font-bold text-neutral-800">Cardápio</h1>
+          <p className="text-xs text-neutral-500">
+            Gerencie categorias, produtos, disponibilidade e fotos
+          </p>
+        </div>
+      </div>
 
       {erro && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2 mb-4">
-          {erro}
-        </p>
+        <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5 mb-4 flex justify-between items-center">
+          <span>{erro}</span>
+          <button onClick={() => setErro(null)} className="text-xs underline font-semibold ml-2">
+            Fechar
+          </button>
+        </div>
       )}
 
+      {/* Criação Rápida de Categoria */}
       <div className="flex gap-2 mb-6">
         <input
           value={novaCategoriaNome}
           onChange={(e) => setNovaCategoriaNome(e.target.value)}
-          placeholder="Nome da nova categoria"
-          className="flex-1 border border-neutral-200 rounded-md px-3 py-2 text-sm"
+          onKeyDown={(e) => e.key === "Enter" && handleCriarCategoria()}
+          placeholder="Nome da nova categoria (ex: Pizzas Salgadas, Bebidas...)"
+          className="flex-1 border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:border-red-500 focus:outline-none bg-white shadow-2xs"
         />
         <button
+          type="button"
           onClick={handleCriarCategoria}
-          className="bg-red-600 text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-red-700"
+          disabled={!novaCategoriaNome.trim()}
+          className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-2xs"
         >
           + Categoria
         </button>
       </div>
 
-      <div className="flex flex-col gap-2">
+      {/* Lista de Categorias */}
+      <div className="flex flex-col gap-2.5">
+        {categorias.length === 0 && (
+          <p className="text-sm text-neutral-400 py-6 text-center border border-dashed border-neutral-300 rounded-lg">
+            Nenhuma categoria cadastrada ainda. Adicione a primeira acima!
+          </p>
+        )}
+
         {categorias.map((categoria) => {
           const produtosDaCategoria = produtos.filter(
             (p) => p.categoria_id === categoria.id,
@@ -402,23 +527,26 @@ export default function CardapioPage() {
           return (
             <div
               key={categoria.id}
-              className="border border-neutral-200 rounded-lg bg-white"
+              className="border border-neutral-200/90 rounded-xl bg-white shadow-2xs overflow-hidden"
             >
+              {/* Barra da Categoria */}
               <div
-                className="flex items-center justify-between px-4 py-3 cursor-pointer"
+                className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-neutral-50/80 transition-colors select-none"
                 onClick={() => setExpandida(aberta ? null : categoria.id)}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                   <span
-                    className={`text-sm ${aberta ? "rotate-90" : ""} transition-transform`}
+                    className={`text-xs text-neutral-500 transition-transform duration-150 ${
+                      aberta ? "rotate-90" : ""
+                    }`}
                   >
                     ▸
                   </span>
-                  <span className="text-sm font-medium text-neutral-800">
+                  <span className="text-sm font-bold text-neutral-800">
                     {categoria.nome}
                   </span>
-                  <span className="text-xs text-neutral-400">
-                    ({produtosDaCategoria.length})
+                  <span className="text-xs font-mono text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded-full">
+                    {produtosDaCategoria.length}
                   </span>
                 </div>
 
@@ -427,13 +555,29 @@ export default function CardapioPage() {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <button
+                    type="button"
                     onClick={() => setEditandoCategoria(categoria)}
-                    className="text-xs text-neutral-400 hover:text-red-600"
+                    className="text-xs font-medium text-neutral-500 hover:text-red-600 transition-colors"
                   >
                     Editar
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleExcluirCategoria(categoria)}
+                    disabled={excluindoCategoriaId === categoria.id}
+                    className="text-xs font-medium text-neutral-400 hover:text-red-600 disabled:opacity-50 transition-colors"
+                    title="Excluir categoria"
+                  >
+                    Excluir
+                  </button>
+
+                  <div className="w-px h-3.5 bg-neutral-200" />
+
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-neutral-500">Ativa</span>
+                    <span className="text-xs text-neutral-500">
+                      {categoria.ativo ? "Ativa" : "Pausada"}
+                    </span>
                     <Toggle
                       checked={categoria.ativo}
                       onChange={() => handleToggleCategoria(categoria)}
@@ -442,72 +586,109 @@ export default function CardapioPage() {
                 </div>
               </div>
 
+              {/* Corpo da Categoria (Produtos) */}
               {aberta && (
-                <div className="border-t border-neutral-100 px-4 py-3">
+                <div className="border-t border-neutral-100 px-4 py-3 bg-neutral-50/40">
                   {produtosDaCategoria.length === 0 && (
-                    <p className="text-xs text-neutral-400 mb-2">
-                      Nenhum produto nessa categoria ainda.
+                    <p className="text-xs text-neutral-400 mb-3 italic">
+                      Nenhum produto cadastrado nessa categoria.
                     </p>
                   )}
+
                   <div className="flex flex-col gap-2 mb-3">
                     {produtosDaCategoria.map((produto) => (
                       <div
                         key={produto.id}
-                        className="flex items-center justify-between text-sm border border-neutral-100 rounded-md px-3 py-2"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm border border-neutral-200 bg-white rounded-lg p-2.5 shadow-2xs"
                       >
-                        <div>
-                          <span className="font-medium text-neutral-800">
-                            {produto.nome}
-                          </span>
-                          <span className="text-xs text-neutral-400 ml-2">
-                            {produto.tipo === "pizza" ? "Pizza" : "Simples"}
-                          </span>
-                          {produto.tipo === "simples" && produto.preco && (
-                            <span className="text-xs text-neutral-500 ml-2">
-                              R${" "}
-                              {Number(produto.preco)
-                                .toFixed(2)
-                                .replace(".", ",")}
-                            </span>
-                          )}
-                          {pizzaSemPreco(produto) && (
-                            <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-1.5 py-0.5 ml-2">
-                              ⚠ Sem preço definido
-                            </span>
-                          )}
+                        {/* Identificação e Miniatura do Produto */}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-md border border-neutral-200 bg-neutral-50 flex items-center justify-center overflow-hidden shrink-0">
+                            {produto.imagem_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={produto.imagem_url}
+                                alt={produto.nome}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-[9px] text-neutral-300">
+                                🍕
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-neutral-800 truncate">
+                                {produto.nome}
+                              </span>
+                              <span className="text-[10px] uppercase font-bold text-neutral-400 bg-neutral-100 px-1.5 py-0.2 rounded">
+                                {produto.tipo === "pizza" ? "Pizza" : "Simples"}
+                              </span>
+
+                              {produto.tipo === "simples" && produto.preco && (
+                                <span className="text-xs font-mono font-bold text-neutral-700">
+                                  R${" "}
+                                  {Number(produto.preco)
+                                    .toFixed(2)
+                                    .replace(".", ",")}
+                                </span>
+                              )}
+
+                              {pizzaSemPreco(produto) && (
+                                <span className="text-[11px] font-semibold text-amber-800 bg-amber-100 border border-amber-300 rounded px-1.5 py-0.2">
+                                  ⚠ Sem preço definido
+                                </span>
+                              )}
+                            </div>
+
+                            {produto.descricao && (
+                              <p className="text-xs text-neutral-400 truncate max-w-sm mt-0.5">
+                                {produto.descricao}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3">
+
+                        {/* Ações do Produto */}
+                        <div className="flex items-center gap-3 justify-end pt-1 sm:pt-0 border-t sm:border-t-0 border-neutral-100">
                           {produto.tipo === "pizza" && (
                             <Link
                               href={`/dashboard/dono/produtos/${produto.id}/precos`}
                               className={
                                 pizzaSemPreco(produto)
-                                  ? "text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-md px-2.5 py-1"
-                                  : "text-xs font-medium text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 rounded-md px-2.5 py-1"
+                                  ? "text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md px-2.5 py-1 shadow-2xs"
+                                  : "text-xs font-semibold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 rounded-md px-2.5 py-1"
                               }
                             >
-                              Definir preços →
+                              Preços →
                             </Link>
                           )}
-                          <div className="flex items-center gap-2">
+
+                          <div className="flex items-center gap-1.5">
                             <span className="text-xs text-neutral-500">
-                              Disponível
+                              {produto.disponivel ? "Ativo" : "Esgotado"}
                             </span>
                             <Toggle
                               checked={produto.disponivel}
                               onChange={() => handleToggleDisponivel(produto)}
                             />
                           </div>
+
                           <button
+                            type="button"
                             onClick={() => setEditandoProduto(produto)}
-                            className="text-xs text-neutral-400 hover:text-red-600"
+                            className="text-xs font-medium text-neutral-500 hover:text-red-600 transition-colors"
                           >
                             Editar
                           </button>
+
                           <button
+                            type="button"
                             onClick={() => handleExcluirProduto(produto)}
                             disabled={excluindoId === produto.id}
-                            className="text-xs text-neutral-400 hover:text-red-600 disabled:opacity-50"
+                            className="text-xs font-medium text-neutral-400 hover:text-red-600 disabled:opacity-50 transition-colors"
                             title="Excluir produto"
                           >
                             Excluir
@@ -518,10 +699,12 @@ export default function CardapioPage() {
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => setProdutoFormAberto(categoria.id)}
-                    className="text-xs text-red-600 font-medium"
+                    className="text-xs text-red-600 hover:text-red-700 font-semibold inline-flex items-center gap-1 py-1"
                   >
-                    + Adicionar produto
+                    <span>+</span>
+                    <span>Adicionar produto</span>
                   </button>
 
                   {produtoFormAberto === categoria.id && (
@@ -562,7 +745,7 @@ export default function CardapioPage() {
             setProdutos((prev) =>
               prev.map((p) => (p.id === atualizado.id ? atualizado : p)),
             );
-            setEditandoProduto(atualizado);
+            setEditandoProduto(null);
           }}
           onFechar={() => setEditandoProduto(null)}
         />
@@ -592,38 +775,56 @@ function NovoProdutoForm({
   const [enviando, setEnviando] = useState(false);
   const inputImagemRef = useRef<HTMLInputElement>(null);
 
+  // Limpa a URL em memória ao desmontar ou trocar de foto
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
   function handleSelecionarImagem(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
     setImagem(file);
     setPreviewUrl(URL.createObjectURL(file));
   }
 
   async function handleSubmit() {
-    if (!nome.trim()) return;
+    if (!nome.trim()) {
+      setErro("Informe o nome do produto.");
+      return;
+    }
+
+    let precoNumerico: number | undefined = undefined;
+    if (tipo === "simples") {
+      precoNumerico = tratarValorMoeda(preco);
+      if (precoNumerico === undefined || precoNumerico <= 0) {
+        setErro("Para produtos simples, informe um preço válido (ex: 12.90).");
+        return;
+      }
+    }
+
     setEnviando(true);
     setErro(null);
     try {
       const novo = await produtoService.criar({
-        nome,
-        descricao: descricao || undefined,
+        nome: nome.trim(),
+        descricao: descricao.trim() || undefined,
         tipo,
         categoria_id: categoriaId,
-        preco: tipo === "simples" ? Number(preco) : undefined,
+        preco: precoNumerico,
       });
 
-      // Produto criado. Se uma imagem foi escolhida, sobe ela agora num segundo
-      // passo (o endpoint de upload precisa do id do produto, que só existe
-      // depois de criado). Se esse passo falhar, o produto NÃO é perdido —
-      // ele já existe, só fica sem foto até o dono tentar de novo editando.
       if (imagem) {
         try {
           const comImagem = await produtoService.uploadImagem(novo.id, imagem);
           onCriado(comImagem);
         } catch {
-          // O form fecha ao chamar onCriado, então o aviso precisa subir pro
-          // banner da página (que continua visível), não ficar num estado local daqui.
           onAvisoImagem(
             `"${novo.nome}" foi criado, mas a imagem não pôde ser enviada. Edite o produto pra tentar de novo.`,
           );
@@ -643,10 +844,15 @@ function NovoProdutoForm({
   }
 
   return (
-    <div className="mt-3 border border-neutral-200 rounded-md p-3 flex flex-col gap-2">
-      {erro && <p className="text-xs text-red-600">{erro}</p>}
+    <div className="mt-3 border border-neutral-200 bg-white rounded-xl p-3.5 flex flex-col gap-2.5 shadow-xs">
+      {erro && (
+        <p className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-100">
+          {erro}
+        </p>
+      )}
+
       <div className="flex items-center gap-3">
-        <div className="w-14 h-14 rounded-md border border-neutral-200 bg-neutral-50 flex items-center justify-center overflow-hidden shrink-0">
+        <div className="w-14 h-14 rounded-lg border border-neutral-200 bg-neutral-50 flex items-center justify-center overflow-hidden shrink-0">
           {previewUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={previewUrl} alt="" className="w-full h-full object-cover" />
@@ -667,57 +873,70 @@ function NovoProdutoForm({
           <button
             type="button"
             onClick={() => inputImagemRef.current?.click()}
-            className="text-xs font-medium text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 rounded-md px-2.5 py-1.5"
+            className="text-xs font-semibold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 rounded-lg px-2.5 py-1.5 transition-colors"
           >
             {previewUrl ? "Trocar foto" : "Adicionar foto"}
           </button>
         </div>
       </div>
+
       <input
         value={nome}
         onChange={(e) => setNome(e.target.value)}
-        placeholder="Nome do produto"
-        className="border border-neutral-200 rounded-md px-2 py-1.5 text-sm"
+        placeholder="Nome do produto *"
+        className="border border-neutral-300 rounded-md px-2.5 py-1.5 text-sm focus:border-red-500 focus:outline-none"
       />
+
       <input
         value={descricao}
         onChange={(e) => setDescricao(e.target.value)}
         placeholder="Descrição (opcional)"
-        className="border border-neutral-200 rounded-md px-2 py-1.5 text-sm"
+        className="border border-neutral-300 rounded-md px-2.5 py-1.5 text-sm focus:border-red-500 focus:outline-none"
       />
-      <select
-        value={tipo}
-        onChange={(e) => setTipo(e.target.value as TipoProduto)}
-        className="border border-neutral-200 rounded-md px-2 py-1.5 text-sm"
-      >
-        <option value="simples">Simples</option>
-        <option value="pizza">Pizza</option>
-      </select>
-      {tipo === "simples" && (
-        <input
-          value={preco}
-          onChange={(e) => setPreco(e.target.value)}
-          placeholder="Preço (ex: 12.90)"
-          type="number"
-          step="0.01"
-          className="border border-neutral-200 rounded-md px-2 py-1.5 text-sm"
-        />
-      )}
+
+      <div className="flex gap-2">
+        <select
+          value={tipo}
+          onChange={(e) => setTipo(e.target.value as TipoProduto)}
+          className="border border-neutral-300 rounded-md px-2.5 py-1.5 text-sm focus:border-red-500 focus:outline-none bg-white"
+        >
+          <option value="simples">Simples (Refrigerante, Sobremesa...)</option>
+          <option value="pizza">Pizza (Vários tamanhos)</option>
+        </select>
+
+        {tipo === "simples" && (
+          <input
+            value={preco}
+            onChange={(e) => setPreco(e.target.value)}
+            placeholder="Preço (ex: 12.90) *"
+            type="text"
+            inputMode="decimal"
+            className="border border-neutral-300 rounded-md px-2.5 py-1.5 text-sm focus:border-red-500 focus:outline-none flex-1"
+          />
+        )}
+      </div>
+
       {tipo === "pizza" && (
-        <p className="text-xs text-neutral-400">
-          Preços por tamanho são definidos depois de criar o produto.
+        <p className="text-xs text-neutral-500 bg-neutral-50 p-2 rounded border border-neutral-200">
+          💡 Os preços por tamanho (Broto, Grande, Família) serão configurados logo após salvar.
         </p>
       )}
-      <div className="flex gap-2 mt-1">
+
+      <div className="flex justify-end gap-2 mt-1">
         <button
-          onClick={handleSubmit}
-          disabled={enviando}
-          className="bg-red-600 text-white text-xs font-medium px-3 py-1.5 rounded-md disabled:opacity-50"
+          type="button"
+          onClick={onCancelar}
+          className="text-xs text-neutral-600 hover:bg-neutral-100 px-3 py-1.5 rounded-md"
         >
-          {enviando ? "Salvando..." : "Salvar"}
-        </button>
-        <button onClick={onCancelar} className="text-xs text-neutral-500">
           Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={enviando || !nome.trim()}
+          className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-4 py-1.5 rounded-md disabled:opacity-50"
+        >
+          {enviando ? "Salvando..." : "Salvar produto"}
         </button>
       </div>
     </div>

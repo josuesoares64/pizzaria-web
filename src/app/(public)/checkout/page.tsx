@@ -9,10 +9,28 @@ import { orderService } from '@/server/order.service';
 import { entregaService, LocalidadeTaxa } from '@/server/entrega.service';
 import { Endereco } from '@/types/endereco';
 import { FormaPagamento, TipoPedido } from '@/types/order';
-import { FiMapPin, FiLoader, FiAlertTriangle, FiShoppingBag, FiGrid } from 'react-icons/fi';
+import {
+  FiMapPin,
+  FiLoader,
+  FiAlertTriangle,
+  FiShoppingBag,
+  FiGrid,
+  FiArrowLeft,
+  FiCheck,
+  FiCreditCard,
+  FiDollarSign,
+  FiZap,
+} from 'react-icons/fi';
 
 function formatarPreco(valor: number) {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function tratarValorMoeda(valor: string | number | undefined | null): number | undefined {
+  if (valor === undefined || valor === null || valor === '') return undefined;
+  const str = String(valor).replace(',', '.');
+  const num = Number(str);
+  return isNaN(num) ? undefined : num;
 }
 
 const enderecoVazio: Endereco = {
@@ -26,10 +44,25 @@ const enderecoVazio: Endereco = {
 
 const OUTRO_BAIRRO = '__outro__';
 
-const tiposPedido: { valor: TipoPedido; label: string; icone: React.ReactNode }[] = [
-  { valor: 'entrega', label: 'Entrega', icone: <FiMapPin size={16} /> },
-  { valor: 'retirada', label: 'Retirada', icone: <FiShoppingBag size={16} /> },
-  { valor: 'mesa', label: 'Mesa', icone: <FiGrid size={16} /> },
+const tiposPedido: { valor: TipoPedido; label: string; icone: React.ReactNode; descricao: string }[] = [
+  {
+    valor: 'entrega',
+    label: 'Entrega Delivery',
+    icone: <FiMapPin size={17} />,
+    descricao: 'No conforto da sua casa',
+  },
+  {
+    valor: 'retirada',
+    label: 'Retirar no Balcão',
+    icone: <FiShoppingBag size={17} />,
+    descricao: 'Buscar na pizzaria',
+  },
+  {
+    valor: 'mesa',
+    label: 'Consumo na Mesa',
+    icone: <FiGrid size={17} />,
+    descricao: 'Consumir no local',
+  },
 ];
 
 export default function CheckoutPage() {
@@ -46,24 +79,20 @@ export default function CheckoutPage() {
   const [observacoes, setObservacoes] = useState('');
 
   const [carregandoEndereco, setCarregandoEndereco] = useState(true);
+  const [buscandoCep, setBuscandoCep] = useState(false);
 
-  // ---- Localidade e taxa de entrega ----
-  // A seleção guarda o ID da localidade cadastrada (nunca o nome/texto do bairro).
-  // Isso é o que evita que o cliente "burle" a taxa: só um ID que existe de fato
-  // na tabela da pizzaria consegue puxar uma taxa diferente da padrão — o texto
-  // digitado no campo "outro bairro" nunca é usado pra calcular nada.
+  // ---- Localidade e taxa de entrega segura ----
   const [localidades, setLocalidades] = useState<LocalidadeTaxa[]>([]);
   const [taxaPadrao, setTaxaPadrao] = useState<number | null>(null);
   const [carregandoLocalidades, setCarregandoLocalidades] = useState(true);
-  const [selecaoLocalidadeId, setSelecaoLocalidadeId] = useState<string>(''); // id cadastrado, ou OUTRO_BAIRRO, ou '' (nada escolhido)
+  const [selecaoLocalidadeId, setSelecaoLocalidadeId] = useState<string>('');
 
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState('');
 
   const subtotal = items.reduce((soma, item) => soma + item.precoUnitario * item.quantidade, 0);
 
-  // Taxa efetiva: só existe taxa "de bairro" se o ID escolhido bater com uma
-  // localidade cadastrada. "Outro" ou nada selecionado cai na taxa padrão.
+  // Taxa efetiva calculada com validação contra burla
   const taxaEntrega = useMemo(() => {
     if (!selecaoLocalidadeId) return null;
     if (selecaoLocalidadeId === OUTRO_BAIRRO) return taxaPadrao;
@@ -78,10 +107,8 @@ export default function CheckoutPage() {
       try {
         const data = await enderecoService.buscarMeu();
         setEndereco(data);
-        // A pré-seleção do dropdown por ID só acontece depois que as localidades
-        // carregarem (precisamos casar o bairro salvo com o ID correspondente).
       } catch {
-        // Sem endereço cadastrado ainda — mantém o formulário vazio pro cliente preencher
+        // Sem endereço cadastrado ainda
       } finally {
         setCarregandoEndereco(false);
       }
@@ -89,7 +116,7 @@ export default function CheckoutPage() {
     carregarEndereco();
   }, []);
 
-  // Lista de localidades cadastradas pela pizzaria + taxa padrão, pro cliente escolher no checkout
+  // Lista de localidades cadastradas pela pizzaria + taxa padrão
   useEffect(() => {
     async function carregarLocalidades() {
       if (!pizzariaId) return;
@@ -98,13 +125,10 @@ export default function CheckoutPage() {
         setLocalidades(dados.localidades);
         setTaxaPadrao(dados.taxaPadrao);
 
-        // Se o endereço salvo já tem um bairro, tenta achar o ID correspondente
-        // pra pré-selecionar o dropdown. Se não achar (bairro não está mais
-        // cadastrado, ou nunca esteve), cai em "outro" mantendo o texto salvo.
         setEndereco((enderecoAtual) => {
           if (enderecoAtual.bairro) {
             const correspondente = dados.localidades.find(
-              (l) => l.bairro === enderecoAtual.bairro
+              (l) => l.bairro.toLowerCase() === enderecoAtual.bairro.toLowerCase()
             );
             setSelecaoLocalidadeId(correspondente ? correspondente.id : OUTRO_BAIRRO);
           }
@@ -124,15 +148,50 @@ export default function CheckoutPage() {
     setEndereco((prev) => ({ ...prev, [campo]: valor }));
   }
 
+  // Busca rápida de CEP no checkout
+  async function handleCepChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const cepLimpo = e.target.value.replace(/\D/g, '').slice(0, 8);
+    atualizarCampo('cep', cepLimpo);
+
+    if (cepLimpo.length === 8) {
+      setBuscandoCep(true);
+      try {
+        const res = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+        const data = await res.json();
+        if (!data.erro) {
+          setEndereco((prev) => {
+            const novoBairro = data.bairro || prev.bairro;
+            // Tenta encontrar o bairro retornado na lista da pizzaria
+            const correspondente = localidades.find(
+              (l) => l.bairro.toLowerCase() === novoBairro.toLowerCase()
+            );
+            if (correspondente) {
+              setSelecaoLocalidadeId(correspondente.id);
+            } else {
+              setSelecaoLocalidadeId(OUTRO_BAIRRO);
+            }
+
+            return {
+              ...prev,
+              rua: data.logradouro || prev.rua,
+              bairro: novoBairro,
+            };
+          });
+        }
+      } catch {
+        // Fallback silencioso
+      } finally {
+        setBuscandoCep(false);
+      }
+    }
+  }
+
   function handleSelecionarLocalidade(valor: string) {
     setSelecaoLocalidadeId(valor);
     if (valor !== OUTRO_BAIRRO) {
-      // Localidade veio da lista cadastrada — o nome oficial vai pro endereço
-      // (só como informação de exibição/entrega, não é mais usado pra calcular taxa)
       const localidade = localidades.find((l) => l.id === valor);
       setEndereco((prev) => ({ ...prev, bairro: localidade?.bairro || '' }));
     } else {
-      // "Outro" — limpa pra o cliente digitar o nome real do bairro dele
       setEndereco((prev) => ({ ...prev, bairro: '' }));
     }
   }
@@ -154,27 +213,30 @@ export default function CheckoutPage() {
     setErro('');
 
     if (!pizzariaId) {
-      setErro('Não foi possível identificar a pizzaria do carrinho. Volte ao cardápio e tente novamente.');
+      setErro('Não foi possível identificar a pizzaria. Volte ao cardápio e tente novamente.');
       return;
     }
 
     if (items.length === 0) {
-      setErro('Seu carrinho está vazio.');
+      setErro('Sua sacola está vazia.');
       return;
     }
 
-    if (tipoPedido === 'entrega' && (!endereco.cep || !endereco.numero || !endereco.rua || !endereco.bairro)) {
-      setErro('Preencha CEP, número, rua e bairro para continuar.');
-      return;
+    if (tipoPedido === 'entrega') {
+      if (!endereco.cep || !endereco.numero || !endereco.rua || !endereco.bairro) {
+        setErro('Preencha CEP, número, rua e bairro para prosseguir com a entrega.');
+        return;
+      }
     }
 
     if (tipoPedido === 'mesa' && !numeroMesa.trim()) {
-      setErro('Informe o número da mesa para continuar.');
+      setErro('Informe o número da sua mesa para podermos levar o pedido.');
       return;
     }
 
-    if (formaPagamento === 'dinheiro' && trocoPara && Number(trocoPara) < total) {
-      setErro('O valor do troco não pode ser menor que o total do pedido.');
+    const trocoNum = tratarValorMoeda(trocoPara);
+    if (formaPagamento === 'dinheiro' && trocoNum !== undefined && trocoNum < total) {
+      setErro(`O valor do troco não pode ser menor que o total do pedido (${formatarPreco(total)}).`);
       return;
     }
 
@@ -193,8 +255,8 @@ export default function CheckoutPage() {
       await orderService.criarPedido({
         pizzaria_id: pizzariaId,
         forma_pagamento: formaPagamento,
-        troco_para: formaPagamento === 'dinheiro' && trocoPara ? Number(trocoPara) : undefined,
-        observacoes: observacoes || undefined,
+        troco_para: formaPagamento === 'dinheiro' && trocoNum ? trocoNum : undefined,
+        observacoes: observacoes.trim() || undefined,
         tipo_pedido: tipoPedido,
         endereco: tipoPedido === 'entrega' ? endereco : undefined,
         localidade_id: tipoPedido === 'entrega' ? localidadeIdValida : undefined,
@@ -208,21 +270,32 @@ export default function CheckoutPage() {
         })),
       });
 
-      router.push('/pedidos');
       dispatch(clearCart());
+      router.push('/pedidos');
     } catch (err) {
       const mensagem = (err as { message?: string })?.message;
-      setErro(mensagem || 'Erro ao finalizar o pedido. Tente novamente.');
+      setErro(mensagem || 'Erro ao finalizar o pedido. Verifique seus dados e tente novamente.');
       setEnviando(false);
     }
   }
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 mt-24 text-gray-400 text-center px-4">
-        <p>Seu carrinho está vazio.</p>
-        <button onClick={() => router.push('/')} className="text-red-600 font-medium hover:underline">
-          Voltar ao início
+      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3 text-center px-4">
+        <div className="w-16 h-16 rounded-2xl bg-neutral-100 text-neutral-400 flex items-center justify-center text-2xl">
+          🛍️
+        </div>
+        <h1 className="text-base font-bold text-neutral-800">Sua sacola está vazia</h1>
+        <p className="text-xs text-neutral-400 max-w-xs">
+          Parece que você ainda não escolheu seus produtos. Volte ao cardápio para adicionar suas pizzas!
+        </p>
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="mt-2 text-xs font-bold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 rounded-xl px-4 py-2 transition-colors inline-flex items-center gap-1.5"
+        >
+          <FiArrowLeft />
+          Voltar ao cardápio
         </button>
       </div>
     );
@@ -230,248 +303,355 @@ export default function CheckoutPage() {
 
   if (carregandoEndereco) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 mt-24 text-gray-400">
-        <FiLoader className="animate-spin" size={28} />
-        <p>Carregando checkout...</p>
+      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-2.5 text-neutral-500">
+        <FiLoader className="animate-spin text-red-600" size={32} />
+        <p className="text-xs font-semibold">Carregando dados de finalização...</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-10">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Finalizar pedido</h1>
+    <div className="min-h-screen bg-neutral-50/60 py-8 px-4 sm:px-6">
+      <div className="max-w-2xl mx-auto space-y-6">
+        {/* Cabeçalho do Checkout */}
+        <header className="flex items-center justify-between pb-4 border-b border-neutral-200">
+          <div>
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="text-xs font-semibold text-neutral-400 hover:text-neutral-700 inline-flex items-center gap-1 mb-1 transition-colors"
+            >
+              <FiArrowLeft /> Voltar
+            </button>
+            <h1 className="text-2xl font-black text-neutral-900 tracking-tight">
+              Finalizar Pedido
+            </h1>
+          </div>
+          <span className="text-xs font-bold font-mono text-neutral-500 bg-white border border-neutral-200 px-3 py-1.5 rounded-full shadow-2xs">
+            {items.reduce((s, i) => s + i.quantidade, 0)} itens
+          </span>
+        </header>
 
-      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-8">
-        {/* Resumo do carrinho */}
-        <section>
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">Resumo do pedido</h2>
-          <div className="border rounded-lg divide-y">
-            {items.map((item) => (
-              <div key={item.id} className="flex justify-between p-3 text-sm">
-                <div>
-                  <p className="font-medium">{item.quantidade}x {item.nomeExibicao}</p>
-                  {(item.tamanhoNome || item.bordaNome) && (
-                    <p className="text-xs text-gray-500">
-                      {[item.tamanhoNome, item.bordaNome].filter(Boolean).join(' • ')}
-                    </p>
-                  )}
-                </div>
-                <p className="font-semibold">{formatarPreco(item.precoUnitario * item.quantidade)}</p>
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-between mt-3 px-1">
-            <span className="text-gray-600 text-sm">Subtotal</span>
-            <span className="text-sm">{formatarPreco(subtotal)}</span>
-          </div>
-          {tipoPedido === 'entrega' && (
-            <div className="flex justify-between px-1">
-              <span className="text-gray-600 text-sm">Taxa de entrega</span>
-              <span className="text-sm">
-                {!selecaoLocalidadeId
-                  ? 'Selecione o bairro'
-                  : taxaEntrega !== null
-                    ? formatarPreco(taxaEntrega)
-                    : 'A calcular'}
-              </span>
-            </div>
-          )}
-          <div className="flex justify-between mt-1 px-1">
-            <span className="font-medium">Total</span>
-            <span className="font-bold text-lg">{formatarPreco(total)}</span>
-          </div>
-        </section>
-
-        {/* Tipo de pedido */}
-        <section>
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">Como você quer receber?</h2>
-          <div className="flex gap-3">
-            {tiposPedido.map((tipo) => (
-              <button
-                type="button"
-                key={tipo.valor}
-                onClick={() => handleTrocarTipoPedido(tipo.valor)}
-                className={`flex-1 flex items-center justify-center gap-2 border rounded-lg py-2 text-sm font-medium transition-colors ${
-                  tipoPedido === tipo.valor
-                    ? 'bg-red-600 text-white border-red-600'
-                    : 'bg-white text-gray-700 hover:border-red-300'
-                }`}
-              >
-                {tipo.icone}
-                {tipo.label}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        {/* Endereço de entrega — só aparece quando tipo_pedido === 'entrega' */}
-        {tipoPedido === 'entrega' && (
-          <section>
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 mb-3">
-              <FiMapPin className="text-red-600" size={18} />
-              Endereço de entrega
+        <form onSubmit={handleSubmit} noValidate className="space-y-6">
+          {/* BLOCO 1: RESUMO DO PEDIDO */}
+          <section className="bg-white border border-neutral-200/90 rounded-2xl p-5 shadow-2xs space-y-3">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-2">
+              <span>🧾</span> 1. Resumo dos Itens
             </h2>
 
-            <div className="mb-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Bairro
-              </label>
-              {carregandoLocalidades ? (
-                <p className="text-sm text-gray-400">Carregando bairros...</p>
-              ) : (
-                <select
-                  value={selecaoLocalidadeId}
-                  onChange={(e) => handleSelecionarLocalidade(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-white"
-                >
-                  <option value="" disabled>
-                    Selecione seu bairro
-                  </option>
-                  {localidades.map((loc) => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.bairro}
-                    </option>
-                  ))}
-                  <option value={OUTRO_BAIRRO}>Meu bairro não está na lista</option>
-                </select>
-              )}
+            <div className="divide-y divide-neutral-100 border border-neutral-100 rounded-xl overflow-hidden bg-neutral-50/40">
+              {items.map((item) => (
+                <div key={item.id} className="flex justify-between items-center p-3 text-xs">
+                  <div className="pr-3 min-w-0">
+                    <p className="font-bold text-neutral-900 truncate">
+                      {item.quantidade}x {item.nomeExibicao}
+                    </p>
+                    {(item.tamanhoNome || item.bordaNome) && (
+                      <p className="text-[11px] text-neutral-400 mt-0.5">
+                        {[item.tamanhoNome, item.bordaNome ? `Borda ${item.bordaNome}` : null]
+                          .filter(Boolean)
+                          .join(' • ')}
+                      </p>
+                    )}
+                  </div>
+                  <span className="font-mono font-bold text-neutral-900 shrink-0">
+                    {formatarPreco(item.precoUnitario * item.quantidade)}
+                  </span>
+                </div>
+              ))}
             </div>
 
-            {selecaoLocalidadeId === OUTRO_BAIRRO && (
-              <div className="mb-3">
+            {/* Linhas de totais */}
+            <div className="space-y-1.5 pt-2 text-xs">
+              <div className="flex justify-between text-neutral-500">
+                <span>Subtotal dos itens</span>
+                <span className="font-mono">{formatarPreco(subtotal)}</span>
+              </div>
+
+              {tipoPedido === 'entrega' && (
+                <div className="flex justify-between text-neutral-500">
+                  <span>Taxa de entrega</span>
+                  <span className="font-mono font-semibold text-neutral-800">
+                    {!selecaoLocalidadeId
+                      ? 'Selecione seu bairro'
+                      : taxaEntrega !== null
+                      ? formatarPreco(taxaEntrega)
+                      : 'Grátis'}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex justify-between items-baseline pt-2 border-t border-neutral-100 text-sm">
+                <span className="font-bold text-neutral-900">Total a pagar</span>
+                <span className="font-mono font-extrabold text-lg text-red-600">
+                  {formatarPreco(total)}
+                </span>
+              </div>
+            </div>
+          </section>
+
+          {/* BLOCO 2: TIPO DE PEDIDO */}
+          <section className="bg-white border border-neutral-200/90 rounded-2xl p-5 shadow-2xs space-y-3">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-2">
+              <span>🛵</span> 2. Como você quer receber?
+            </h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {tiposPedido.map((tipo) => {
+                const selecionado = tipoPedido === tipo.valor;
+                return (
+                  <button
+                    type="button"
+                    key={tipo.valor}
+                    onClick={() => handleTrocarTipoPedido(tipo.valor)}
+                    className={`p-3 rounded-xl border-2 text-left transition-all relative flex flex-col justify-between ${
+                      selecionado
+                        ? 'border-red-600 bg-red-50/30 shadow-xs'
+                        : 'border-neutral-200 hover:border-neutral-300 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={selecionado ? 'text-red-600' : 'text-neutral-400'}>
+                        {tipo.icone}
+                      </span>
+                      {selecionado && <FiCheck className="text-red-600" size={14} />}
+                    </div>
+                    <p className="font-bold text-xs text-neutral-900">{tipo.label}</p>
+                    <p className="text-[10px] text-neutral-400 mt-0.5">{tipo.descricao}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* BLOCO 3A: ENDEREÇO DE ENTREGA */}
+          {tipoPedido === 'entrega' && (
+            <section className="bg-white border border-neutral-200/90 rounded-2xl p-5 shadow-2xs space-y-4 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-2">
+                  <FiMapPin className="text-red-600" /> 3. Endereço de Entrega
+                </h2>
+                <span className="text-[10px] text-neutral-400">
+                  {buscandoCep ? 'Buscando CEP...' : 'Preencha os campos'}
+                </span>
+              </div>
+
+              {/* Seleção Segura de Bairro */}
+              <div>
+                <label className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block mb-1">
+                  Selecione seu Bairro *
+                </label>
+                {carregandoLocalidades ? (
+                  <p className="text-xs text-neutral-400 py-2">Carregando taxas por bairro...</p>
+                ) : (
+                  <select
+                    value={selecaoLocalidadeId}
+                    onChange={(e) => handleSelecionarLocalidade(e.target.value)}
+                    className="w-full bg-neutral-50 border border-neutral-300 focus:border-red-500 rounded-xl px-3.5 py-2.5 text-xs text-neutral-900 font-semibold focus:outline-none focus:ring-2 focus:ring-red-500/10 cursor-pointer"
+                  >
+                    <option value="" disabled>
+                      Selecione o bairro da entrega...
+                    </option>
+                    {localidades.map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.bairro} — {formatarPreco(Number(loc.taxa))} de taxa
+                      </option>
+                    ))}
+                    <option value={OUTRO_BAIRRO}>
+                      Meu bairro não está na lista {taxaPadrao !== null ? `(${formatarPreco(taxaPadrao)})` : ''}
+                    </option>
+                  </select>
+                )}
+              </div>
+
+              {selecaoLocalidadeId === OUTRO_BAIRRO && (
+                <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-xs space-y-1.5 animate-in fade-in duration-150">
+                  <label className="text-[11px] font-bold text-amber-900 uppercase tracking-wider block">
+                    Nome do seu bairro *
+                  </label>
+                  <input
+                    placeholder="Digite o nome do seu bairro"
+                    value={endereco.bairro}
+                    onChange={(e) => atualizarCampo('bairro', e.target.value)}
+                    className="w-full bg-white border border-amber-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                  />
+                  <p className="text-[10px] text-amber-700">
+                    💡 Como este bairro não está na tabela cadastrada, será aplicada a taxa padrão da pizzaria.
+                  </p>
+                </div>
+              )}
+
+              {/* Grid de Campos do Endereço */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="col-span-1">
+                  <label className="text-[10px] font-bold text-neutral-400 block mb-1">
+                    CEP {buscandoCep && '...'}
+                  </label>
+                  <input
+                    placeholder="00000-000"
+                    value={endereco.cep}
+                    onChange={handleCepChange}
+                    maxLength={8}
+                    className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-xs focus:border-red-500 focus:outline-none font-mono"
+                  />
+                </div>
+
+                <div className="col-span-1">
+                  <label className="text-[10px] font-bold text-neutral-400 block mb-1">
+                    Número *
+                  </label>
+                  <input
+                    placeholder="Ex: 142"
+                    value={endereco.numero}
+                    onChange={(e) => atualizarCampo('numero', e.target.value)}
+                    className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-xs focus:border-red-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="text-[10px] font-bold text-neutral-400 block mb-1">
+                    Rua / Avenida *
+                  </label>
+                  <input
+                    placeholder="Ex: Rua das Flores"
+                    value={endereco.rua}
+                    onChange={(e) => atualizarCampo('rua', e.target.value)}
+                    className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-xs focus:border-red-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="text-[10px] font-bold text-neutral-400 block mb-1">
+                    Complemento (opcional)
+                  </label>
+                  <input
+                    placeholder="Apto 32, Bloco B..."
+                    value={endereco.complemento || ''}
+                    onChange={(e) => atualizarCampo('complemento', e.target.value)}
+                    className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-xs focus:border-red-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="text-[10px] font-bold text-neutral-400 block mb-1">
+                    Ponto de Referência (opcional)
+                  </label>
+                  <input
+                    placeholder="Próximo à padaria..."
+                    value={endereco.referencia || ''}
+                    onChange={(e) => atualizarCampo('referencia', e.target.value)}
+                    className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-xs focus:border-red-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* BLOCO 3B: MESA (Se tipo mesa) */}
+          {tipoPedido === 'mesa' && (
+            <section className="bg-white border border-neutral-200/90 rounded-2xl p-5 shadow-2xs space-y-3 animate-in fade-in duration-200">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-2">
+                <FiGrid className="text-red-600" /> 3. Identificação da Mesa
+              </h2>
+              <div>
+                <label className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block mb-1">
+                  Número da Mesa *
+                </label>
                 <input
-                  placeholder="Digite o nome do seu bairro"
-                  value={endereco.bairro}
-                  onChange={(e) => atualizarCampo('bairro', e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  placeholder="Ex: 08"
+                  value={numeroMesa}
+                  onChange={(e) => setNumeroMesa(e.target.value)}
+                  className="w-full max-w-xs border border-neutral-300 rounded-xl px-3.5 py-2.5 text-sm font-bold font-mono focus:border-red-500 focus:outline-none"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Como seu bairro não está cadastrado, será cobrada a taxa de entrega padrão.
-                </p>
+              </div>
+            </section>
+          )}
+
+          {/* BLOCO 4: FORMA DE PAGAMENTO */}
+          <section className="bg-white border border-neutral-200/90 rounded-2xl p-5 shadow-2xs space-y-3">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-2">
+              <span>💳</span> 4. Forma de Pagamento
+            </h2>
+
+            <div className="grid grid-cols-3 gap-2.5">
+              {[
+                { valor: 'pix', label: 'Pix', icone: <FiZap /> },
+                { valor: 'cartao', label: 'Cartão', icone: <FiCreditCard /> },
+                { valor: 'dinheiro', label: 'Dinheiro', icone: <FiDollarSign /> },
+              ].map((item) => {
+                const selecionado = formaPagamento === item.valor;
+                return (
+                  <button
+                    type="button"
+                    key={item.valor}
+                    onClick={() => handleTrocarFormaPagamento(item.valor as FormaPagamento)}
+                    className={`py-3 px-2 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 ${
+                      selecionado
+                        ? 'border-red-600 bg-red-50/40 text-red-700 font-bold shadow-xs'
+                        : 'border-neutral-200 hover:border-neutral-300 bg-white text-neutral-700 font-medium'
+                    }`}
+                  >
+                    <span className="text-base">{item.icone}</span>
+                    <span className="text-xs">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {formaPagamento === 'dinheiro' && (
+              <div className="pt-2 animate-in fade-in duration-150">
+                <label className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block mb-1">
+                  Precisa de troco? Para quanto?
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Ex: 50.00 (deixe em branco se for valor exato)"
+                  value={trocoPara}
+                  onChange={(e) => setTrocoPara(e.target.value)}
+                  className="w-full max-w-sm border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-mono focus:border-red-500 focus:outline-none"
+                />
               </div>
             )}
-
-            <div className="grid grid-cols-2 gap-3">
-              <input
-                placeholder="CEP"
-                value={endereco.cep}
-                onChange={(e) => atualizarCampo('cep', e.target.value)}
-                className="col-span-1 border rounded-lg px-3 py-2 text-sm"
-              />
-              <input
-                placeholder="Número"
-                value={endereco.numero}
-                onChange={(e) => atualizarCampo('numero', e.target.value)}
-                className="col-span-1 border rounded-lg px-3 py-2 text-sm"
-              />
-              <input
-                placeholder="Rua"
-                value={endereco.rua}
-                onChange={(e) => atualizarCampo('rua', e.target.value)}
-                className="col-span-2 border rounded-lg px-3 py-2 text-sm"
-              />
-              <input
-                placeholder="Complemento (opcional)"
-                value={endereco.complemento || ''}
-                onChange={(e) => atualizarCampo('complemento', e.target.value)}
-                className="col-span-2 border rounded-lg px-3 py-2 text-sm"
-              />
-              <input
-                placeholder="Ponto de referência (opcional)"
-                value={endereco.referencia || ''}
-                onChange={(e) => atualizarCampo('referencia', e.target.value)}
-                className="col-span-2 border rounded-lg px-3 py-2 text-sm"
-              />
-            </div>
           </section>
-        )}
 
-        {/* Número da mesa — só aparece quando tipo_pedido === 'mesa' */}
-        {tipoPedido === 'mesa' && (
-          <section>
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 mb-3">
-              <FiGrid className="text-red-600" size={18} />
-              Número da mesa
+          {/* BLOCO 5: OBSERVAÇÕES */}
+          <section className="bg-white border border-neutral-200/90 rounded-2xl p-5 shadow-2xs space-y-2">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-2">
+              <span>✍️</span> 5. Observações para a Cozinha
             </h2>
-            <input
-              placeholder="Ex: 5"
-              value={numeroMesa}
-              onChange={(e) => setNumeroMesa(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 text-sm"
+            <textarea
+              value={observacoes}
+              onChange={(e) => setObservacoes(e.target.value)}
+              placeholder="Ex: tirar a cebola da pizza, mandar guardanapo extra, campainha não funciona..."
+              rows={2}
+              className="w-full border border-neutral-300 rounded-xl px-3.5 py-2 text-xs focus:border-red-500 focus:outline-none resize-none"
             />
           </section>
-        )}
 
-        {/* Forma de pagamento */}
-        <section>
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">Forma de pagamento</h2>
-          <div className="flex gap-3">
-            {(['pix', 'cartao', 'dinheiro'] as FormaPagamento[]).map((forma) => (
-              <button
-                type="button"
-                key={forma}
-                onClick={() => handleTrocarFormaPagamento(forma)}
-                className={`flex-1 border rounded-lg py-2 text-sm font-medium capitalize transition-colors ${
-                  formaPagamento === forma
-                    ? 'bg-red-600 text-white border-red-600'
-                    : 'bg-white text-gray-700 hover:border-red-300'
-                }`}
-              >
-                {forma}
-              </button>
-            ))}
-          </div>
-
-          {formaPagamento === 'dinheiro' && (
-            <div className="mt-3">
-              <label className="block text-sm text-gray-600 mb-1">
-                Troco para quanto? (opcional)
-              </label>
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                placeholder="Deixe em branco se não precisar de troco"
-                value={trocoPara}
-                onChange={(e) => setTrocoPara(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              />
-              {trocoPara && Number(trocoPara) < total && (
-                <p className="text-xs text-red-600 mt-1">
-                  O valor informado é menor que o total do pedido ({formatarPreco(total)}).
-                </p>
-              )}
+          {/* Mensagem de Erro com Alerta Visual */}
+          {erro && (
+            <div className="flex items-center gap-2.5 text-xs text-red-800 bg-red-50 border border-red-200 rounded-xl p-3.5 shadow-2xs animate-in shake">
+              <FiAlertTriangle size={18} className="shrink-0 text-red-600" />
+              <span className="font-semibold">{erro}</span>
             </div>
           )}
-        </section>
 
-        {/* Observações */}
-        <section>
-          <label className="block text-lg font-semibold text-gray-900 mb-3">Observações (opcional)</label>
-          <textarea
-            value={observacoes}
-            onChange={(e) => setObservacoes(e.target.value)}
-            placeholder="Ex: sem cebola..."
-            rows={3}
-            className="w-full border rounded-lg px-3 py-2 text-sm resize-none"
-          />
-        </section>
-
-        {erro && (
-          <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 border border-red-100 rounded-lg p-3">
-            <FiAlertTriangle size={16} className="shrink-0" />
-            {erro}
+          {/* Botão de Finalização com Total */}
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={enviando}
+              className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-extrabold text-sm py-3.5 px-6 rounded-2xl shadow-md transition-all flex items-center justify-between active:scale-98"
+            >
+              <span>{enviando ? 'Enviando seu pedido...' : 'Confirmar e Enviar Pedido'}</span>
+              <span className="font-mono bg-red-700/60 px-3 py-1 rounded-xl">
+                {formatarPreco(total)}
+              </span>
+            </button>
           </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={enviando}
-          className="w-full bg-red-600 text-white font-semibold py-3 rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-        >
-          {enviando ? 'Enviando pedido...' : 'Confirmar pedido'}
-        </button>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }

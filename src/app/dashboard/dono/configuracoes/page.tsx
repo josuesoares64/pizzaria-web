@@ -4,7 +4,47 @@ import { useEffect, useRef, useState } from "react";
 import { pizzariaService } from "@/server/pizzaria.service";
 import { localidadeTaxaService, LocalidadeTaxa } from "@/server/localidadeTaxa.service";
 import { PizzariaMe } from "@/types/pizzaria";
-import { FiTrash2, FiPlus, FiEdit2, FiCheck, FiX } from "react-icons/fi";
+import { FiTrash2, FiPlus, FiEdit2, FiCheck, FiX, FiCopy, FiExternalLink } from "react-icons/fi";
+
+function formatarMoeda(valor: number) {
+  return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function tratarValorMoeda(valor: string | number | undefined | null): number | undefined {
+  if (valor === undefined || valor === null || valor === "") return undefined;
+  const str = String(valor).replace(",", ".");
+  const num = Number(str);
+  return isNaN(num) ? undefined : num;
+}
+
+function Toggle({
+  checked,
+  onChange,
+  disabled = false,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      disabled={disabled}
+      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${
+        checked ? "bg-red-600" : "bg-neutral-300"
+      }`}
+    >
+      <span
+        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-2xs ${
+          checked ? "translate-x-[18px]" : "translate-x-[3px]"
+        }`}
+      />
+    </button>
+  );
+}
 
 export default function ConfiguracoesPage() {
   const [pizzaria, setPizzaria] = useState<PizzariaMe | null>(null);
@@ -15,13 +55,15 @@ export default function ConfiguracoesPage() {
   } | null>(null);
   const [logoCacheBuster, setLogoCacheBuster] = useState<number | null>(null);
   const [enviandoLogo, setEnviandoLogo] = useState(false);
+  const [linkCopiado, setLinkCopiado] = useState(false);
+  const [buscandoCep, setBuscandoCep] = useState(false);
   const inputLogoRef = useRef<HTMLInputElement>(null);
 
-  // ---- Card: Identidade ----
+  // ---- Identidade ----
   const [formIdentidade, setFormIdentidade] = useState({ nome: "", slug: "" });
   const [salvandoIdentidade, setSalvandoIdentidade] = useState(false);
 
-  // ---- Card: Entrega e contato ----
+  // ---- Entrega e Contato ----
   const [formEntrega, setFormEntrega] = useState({ telefone: "", taxaEntrega: "" });
   const [endereco, setEndereco] = useState({
     cep: "",
@@ -33,7 +75,7 @@ export default function ConfiguracoesPage() {
   });
   const [salvandoEntrega, setSalvandoEntrega] = useState(false);
 
-  // ---- Card: Bairros e taxas de entrega ----
+  // ---- Bairros e Taxas ----
   const [localidades, setLocalidades] = useState<LocalidadeTaxa[]>([]);
   const [carregandoLocalidades, setCarregandoLocalidades] = useState(true);
   const [novoBairro, setNovoBairro] = useState("");
@@ -46,7 +88,7 @@ export default function ConfiguracoesPage() {
   const [salvandoEdicaoId, setSalvandoEdicaoId] = useState<string | null>(null);
   const [alternandoAtivoId, setAlternandoAtivoId] = useState<string | null>(null);
 
-  // ---- Card: Impressão ----
+  // ---- Impressão ----
   const [larguraCupom, setLarguraCupom] = useState<"58mm" | "80mm">("80mm");
   const [salvandoImpressao, setSalvandoImpressao] = useState(false);
 
@@ -63,7 +105,7 @@ export default function ConfiguracoesPage() {
               ? String(dados.taxa_entrega)
               : "",
         });
-        setLarguraCupom(dados.largura_cupom);
+        setLarguraCupom(dados.largura_cupom || "80mm");
       } catch (err) {
         console.error(err);
         setMensagem({ tipo: "erro", texto: "Erro ao carregar dados da pizzaria" });
@@ -91,6 +133,33 @@ export default function ConfiguracoesPage() {
     carregarLocalidades();
   }, []);
 
+  // Busca de CEP Automática via ViaCEP
+  async function handleCepChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const cepLimpo = e.target.value.replace(/\D/g, "").slice(0, 8);
+    setEndereco((prev) => ({ ...prev, cep: cepLimpo }));
+
+    if (cepLimpo.length === 8) {
+      setBuscandoCep(true);
+      try {
+        const res = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+        const data = await res.json();
+        if (!data.erro) {
+          setEndereco((prev) => ({
+            ...prev,
+            rua: data.logradouro || prev.rua,
+            bairro: data.bairro || prev.bairro,
+            cidade: data.localidade || prev.cidade,
+            estado: data.uf || prev.estado,
+          }));
+        }
+      } catch {
+        // Fallback silencioso
+      } finally {
+        setBuscandoCep(false);
+      }
+    }
+  }
+
   function handleEnderecoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = e.target;
     setEndereco((prev) => ({ ...prev, [name]: value }));
@@ -102,19 +171,27 @@ export default function ConfiguracoesPage() {
       rua && numero ? `${rua}, ${numero}` : rua,
       bairro,
       cidade && estado ? `${cidade} - ${estado}` : cidade || estado,
-      cep,
+      cep ? `CEP ${cep}` : "",
     ].filter(Boolean);
     return partes.join(", ");
   }
 
-  // ---- Salvar: Identidade ----
+  function copiarLinkCardapio() {
+    if (typeof window === "undefined" || !formIdentidade.slug) return;
+    const url = `${window.location.origin}/${formIdentidade.slug}`;
+    navigator.clipboard.writeText(url);
+    setLinkCopiado(true);
+    setTimeout(() => setLinkCopiado(false), 2000);
+  }
+
+  // ---- Salvar Identidade ----
   async function handleSalvarIdentidade(e: React.FormEvent) {
     e.preventDefault();
     if (!pizzaria) return;
 
     if (formIdentidade.slug !== pizzaria.slug) {
       const confirmar = window.confirm(
-        "Você está alterando o slug da pizzaria. Isso muda o link do cardápio público e pode quebrar links já compartilhados com clientes. Deseja continuar?",
+        "Você está alterando o link do cardápio público da sua pizzaria. Links antigos já compartilhados no WhatsApp ou Instagram deixarão de funcionar. Deseja prosseguir?",
       );
       if (!confirmar) return;
     }
@@ -123,34 +200,36 @@ export default function ConfiguracoesPage() {
     setMensagem(null);
     try {
       const atualizado = await pizzariaService.atualizar({
-        nome: formIdentidade.nome,
-        slug: formIdentidade.slug,
+        nome: formIdentidade.nome.trim(),
+        slug: formIdentidade.slug.trim().toLowerCase(),
       });
       setPizzaria(atualizado);
       setFormIdentidade({ nome: atualizado.nome, slug: atualizado.slug });
       setMensagem({ tipo: "sucesso", texto: "Identidade atualizada com sucesso!" });
     } catch (err) {
-      const mensagemErro = err instanceof Error ? err.message : "Erro ao salvar";
-      setMensagem({ tipo: "erro", texto: mensagemErro });
+      setMensagem({
+        tipo: "erro",
+        texto: err instanceof Error ? err.message : "Erro ao salvar identidade",
+      });
     } finally {
       setSalvandoIdentidade(false);
     }
   }
 
-  // ---- Salvar: Entrega e contato ----
+  // ---- Salvar Entrega e Contato ----
   async function handleSalvarEntrega(e: React.FormEvent) {
     e.preventDefault();
     if (!pizzaria) return;
 
     const enderecoFinal = montarEnderecoString();
-    const taxaTrimmed = formEntrega.taxaEntrega.trim();
+    const taxaNum = tratarValorMoeda(formEntrega.taxaEntrega);
 
     setSalvandoEntrega(true);
     setMensagem(null);
     try {
       const atualizado = await pizzariaService.atualizar({
-        telefone: formEntrega.telefone,
-        taxa_entrega: taxaTrimmed === "" ? null : Number(taxaTrimmed),
+        telefone: formEntrega.telefone.trim(),
+        taxa_entrega: taxaNum === undefined ? null : taxaNum,
         ...(enderecoFinal ? { endereco: enderecoFinal } : {}),
       });
       setPizzaria(atualizado);
@@ -164,24 +243,30 @@ export default function ConfiguracoesPage() {
       setEndereco({ cep: "", rua: "", numero: "", bairro: "", cidade: "", estado: "" });
       setMensagem({ tipo: "sucesso", texto: "Entrega e contato atualizados com sucesso!" });
     } catch (err) {
-      const mensagemErro = err instanceof Error ? err.message : "Erro ao salvar";
-      setMensagem({ tipo: "erro", texto: mensagemErro });
+      setMensagem({
+        tipo: "erro",
+        texto: err instanceof Error ? err.message : "Erro ao salvar",
+      });
     } finally {
       setSalvandoEntrega(false);
     }
   }
 
-  // ---- Adicionar bairro/taxa ----
+  // ---- Adicionar Bairro/Taxa ----
   async function handleAdicionarLocalidade(e: React.FormEvent) {
     e.preventDefault();
-    if (!novoBairro.trim() || !novaTaxa.trim()) return;
+    const taxaNum = tratarValorMoeda(novaTaxa);
+    if (!novoBairro.trim() || taxaNum === undefined) {
+      setMensagem({ tipo: "erro", texto: "Informe o nome do bairro e um valor de taxa válido." });
+      return;
+    }
 
     setSalvandoLocalidade(true);
     setMensagem(null);
     try {
       const criada = await localidadeTaxaService.criar({
         bairro: novoBairro.trim(),
-        taxa: Number(novaTaxa),
+        taxa: taxaNum,
       });
       setLocalidades((prev) =>
         [...prev, criada].sort((a, b) => a.bairro.localeCompare(b.bairro)),
@@ -190,19 +275,21 @@ export default function ConfiguracoesPage() {
       setNovaTaxa("");
       setMensagem({ tipo: "sucesso", texto: "Bairro adicionado com sucesso!" });
     } catch (err) {
-      const mensagemErro = err instanceof Error ? err.message : "Erro ao adicionar bairro";
-      setMensagem({ tipo: "erro", texto: mensagemErro });
+      setMensagem({
+        tipo: "erro",
+        texto: err instanceof Error ? err.message : "Erro ao adicionar bairro",
+      });
     } finally {
       setSalvandoLocalidade(false);
     }
   }
 
-  // ---- Excluir bairro/taxa ----
+  // ---- Excluir Bairro/Taxa ----
   async function handleExcluirLocalidade(id: string) {
     const confirmar = window.confirm(
-      "Remover esse bairro? Pedidos que caírem nele voltam a usar a taxa padrão.",
+      "Remover esse bairro? Os pedidos dessa região voltarão a usar a taxa padrão da pizzaria.",
     );
-    if (!confirmar) return;
+    if (!confirmado) return;
 
     setExcluindoId(id);
     setMensagem(null);
@@ -211,14 +298,15 @@ export default function ConfiguracoesPage() {
       setLocalidades((prev) => prev.filter((l) => l.id !== id));
       setMensagem({ tipo: "sucesso", texto: "Bairro removido com sucesso!" });
     } catch (err) {
-      const mensagemErro = err instanceof Error ? err.message : "Erro ao remover bairro";
-      setMensagem({ tipo: "erro", texto: mensagemErro });
+      setMensagem({
+        tipo: "erro",
+        texto: err instanceof Error ? err.message : "Erro ao remover bairro",
+      });
     } finally {
       setExcluindoId(null);
     }
   }
 
-  // ---- Editar bairro/taxa ----
   function handleIniciarEdicao(loc: LocalidadeTaxa) {
     setEditandoId(loc.id);
     setEditBairro(loc.bairro);
@@ -232,14 +320,15 @@ export default function ConfiguracoesPage() {
   }
 
   async function handleSalvarEdicao(id: string) {
-    if (!editBairro.trim() || !editTaxa.trim()) return;
+    const taxaNum = tratarValorMoeda(editTaxa);
+    if (!editBairro.trim() || taxaNum === undefined) return;
 
     setSalvandoEdicaoId(id);
     setMensagem(null);
     try {
       const atualizada = await localidadeTaxaService.atualizar(id, {
         bairro: editBairro.trim(),
-        taxa: Number(editTaxa),
+        taxa: taxaNum,
       });
       setLocalidades((prev) =>
         prev
@@ -249,14 +338,15 @@ export default function ConfiguracoesPage() {
       setMensagem({ tipo: "sucesso", texto: "Bairro atualizado com sucesso!" });
       handleCancelarEdicao();
     } catch (err) {
-      const mensagemErro = err instanceof Error ? err.message : "Erro ao atualizar bairro";
-      setMensagem({ tipo: "erro", texto: mensagemErro });
+      setMensagem({
+        tipo: "erro",
+        texto: err instanceof Error ? err.message : "Erro ao atualizar bairro",
+      });
     } finally {
       setSalvandoEdicaoId(null);
     }
   }
 
-  // ---- Ativar/Desativar bairro ----
   async function handleAlternarAtivo(loc: LocalidadeTaxa) {
     setAlternandoAtivoId(loc.id);
     setMensagem(null);
@@ -268,18 +358,20 @@ export default function ConfiguracoesPage() {
       setMensagem({
         tipo: "sucesso",
         texto: atualizada.ativo
-          ? "Bairro reativado — voltou a aparecer no checkout."
-          : "Bairro desativado — não aparece mais no checkout, mas o histórico é mantido.",
+          ? `Bairro "${atualizada.bairro}" ativado para entregas.`
+          : `Bairro "${atualizada.bairro}" pausado no checkout.`,
       });
     } catch (err) {
-      const mensagemErro = err instanceof Error ? err.message : "Erro ao atualizar status";
-      setMensagem({ tipo: "erro", texto: mensagemErro });
+      setMensagem({
+        tipo: "erro",
+        texto: err instanceof Error ? err.message : "Erro ao alterar status do bairro",
+      });
     } finally {
       setAlternandoAtivoId(null);
     }
   }
 
-  // ---- Salvar: Impressão ----
+  // ---- Salvar Impressão ----
   async function handleSalvarImpressao(e: React.FormEvent) {
     e.preventDefault();
     if (!pizzaria) return;
@@ -292,10 +384,12 @@ export default function ConfiguracoesPage() {
       });
       setPizzaria(atualizado);
       setLarguraCupom(atualizado.largura_cupom);
-      setMensagem({ tipo: "sucesso", texto: "Configuração de impressão salva!" });
+      setMensagem({ tipo: "sucesso", texto: "Formato de impressão salvo com sucesso!" });
     } catch (err) {
-      const mensagemErro = err instanceof Error ? err.message : "Erro ao salvar";
-      setMensagem({ tipo: "erro", texto: mensagemErro });
+      setMensagem({
+        tipo: "erro",
+        texto: err instanceof Error ? err.message : "Erro ao salvar formato de impressão",
+      });
     } finally {
       setSalvandoImpressao(false);
     }
@@ -313,43 +407,76 @@ export default function ConfiguracoesPage() {
       setPizzaria(atualizado);
       const agora = Date.now();
       setLogoCacheBuster(agora);
-      window.localStorage.setItem("bella-pizz:logo-cache-buster", String(agora));
-      setMensagem({ tipo: "sucesso", texto: "Logo atualizada com sucesso!" });
+      window.localStorage.setItem("forno-menu:logo-cache-buster", String(agora));
+      setMensagem({ tipo: "sucesso", texto: "Logomarca atualizada com sucesso!" });
     } catch (err) {
-      const mensagemErro = err instanceof Error ? err.message : "Erro ao enviar logo";
-      setMensagem({ tipo: "erro", texto: mensagemErro });
+      setMensagem({
+        tipo: "erro",
+        texto: err instanceof Error ? err.message : "Erro ao enviar logomarca",
+      });
     } finally {
       setEnviandoLogo(false);
     }
   }
 
   if (loading) {
-    return <div className="p-6 text-gray-500">Carregando configurações...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[350px] gap-2.5 text-neutral-500">
+        <div className="w-7 h-7 border-3 border-red-600 border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs font-medium">Carregando configurações da pizzaria...</p>
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">Configurações</h1>
+    <div className="max-w-3xl mx-auto space-y-6">
+      {/* Topo da Página */}
+      <header>
+        <h1 className="text-xl font-bold text-neutral-900 tracking-tight">
+          Configurações da Pizzaria
+        </h1>
+        <p className="text-xs text-neutral-500 mt-0.5">
+          Personalize a identidade da loja, taxas de entrega por bairro e impressora térmica
+        </p>
+      </header>
 
+      {/* Alerta de Feedback Flutuante / Fixo */}
       {mensagem && (
         <div
-          className={`mb-4 px-4 py-3 rounded-lg text-sm ${
+          className={`flex items-center justify-between px-4 py-3 rounded-xl text-xs font-semibold border shadow-2xs ${
             mensagem.tipo === "sucesso"
-              ? "bg-green-50 text-green-700 border border-green-200"
-              : "bg-red-50 text-red-700 border border-red-200"
+              ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+              : "bg-red-50 text-red-800 border-red-200"
           }`}
         >
-          {mensagem.texto}
+          <span>{mensagem.texto}</span>
+          <button
+            onClick={() => setMensagem(null)}
+            className="text-xs underline hover:no-underline ml-3 font-bold"
+          >
+            Fechar
+          </button>
         </div>
       )}
 
-      {/* Logo da pizzaria */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6 mb-5">
-        <label className="block text-sm font-medium text-gray-700 mb-3">
-          Logo da pizzaria
-        </label>
-        <div className="flex items-center gap-4">
-          <div className="w-20 h-20 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
+      {/* CARD 1: LOGO E IDENTIDADE VISUAL */}
+      <section className="bg-white border border-neutral-200/90 rounded-2xl p-5 shadow-2xs">
+        <div className="flex items-center justify-between pb-3 border-b border-neutral-100 mb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🏪</span>
+            <div>
+              <h2 className="text-sm font-bold text-neutral-900">
+                Logomarca & Apresentação
+              </h2>
+              <p className="text-[11px] text-neutral-400">
+                A foto de perfil que aparece no topo do seu cardápio digital
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="w-20 h-20 rounded-2xl border border-neutral-200 bg-neutral-50 flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
             {pizzaria?.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -358,10 +485,11 @@ export default function ConfiguracoesPage() {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <span className="text-xs text-gray-400 text-center px-1">Sem logo</span>
+              <span className="text-2xl">🍕</span>
             )}
           </div>
-          <div>
+
+          <div className="space-y-1.5">
             <input
               ref={inputLogoRef}
               type="file"
@@ -369,34 +497,45 @@ export default function ConfiguracoesPage() {
               onChange={handleSelecionarLogo}
               className="hidden"
             />
-            <button
-              type="button"
-              onClick={() => inputLogoRef.current?.click()}
-              disabled={enviandoLogo}
-              className="text-sm font-medium text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-50 rounded-lg px-3 py-1.5"
-            >
-              {enviandoLogo ? "Enviando..." : "Alterar logo"}
-            </button>
-            <p className="text-xs text-gray-500 mt-1.5">PNG ou JPG, até 8MB.</p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => inputLogoRef.current?.click()}
+                disabled={enviandoLogo}
+                className="text-xs font-bold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-50 rounded-xl px-3.5 py-2 transition-colors shadow-2xs"
+              >
+                {enviandoLogo ? "Enviando imagem..." : "Trocar Logomarca"}
+              </button>
+            </div>
+            <p className="text-[11px] text-neutral-400 leading-tight">
+              Formatos recomendados: PNG ou JPG em formato quadrado (mín. 400x400px).
+            </p>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Card: Identidade */}
+      {/* CARD 2: NOME E LINK DO CARDÁPIO (SLUG) */}
       <form
         onSubmit={handleSalvarIdentidade}
-        className="space-y-5 bg-white border border-gray-200 rounded-xl p-6 mb-5"
+        className="bg-white border border-neutral-200/90 rounded-2xl p-5 shadow-2xs space-y-4"
       >
-        <div>
-          <h2 className="text-base font-semibold text-gray-900">Identidade</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Nome e link público do cardápio.
-          </p>
+        <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🔗</span>
+            <div>
+              <h2 className="text-sm font-bold text-neutral-900">
+                Nome & Link Público
+              </h2>
+              <p className="text-[11px] text-neutral-400">
+                O endereço web que você compartilha nas redes e WhatsApp
+              </p>
+            </div>
+          </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Nome da pizzaria
+          <label className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block mb-1">
+            Nome da Pizzaria *
           </label>
           <input
             value={formIdentidade.nome}
@@ -404,380 +543,496 @@ export default function ConfiguracoesPage() {
               setFormIdentidade((prev) => ({ ...prev, nome: e.target.value }))
             }
             required
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+            placeholder="Ex: Bella Pizza Artesanal"
+            className="w-full border border-neutral-300 rounded-xl px-3.5 py-2 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/10"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Slug (link do cardápio)
+          <label className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block mb-1">
+            Link Curto / Slug *
           </label>
-          <div className="flex rounded-lg border border-gray-300 overflow-hidden focus-within:ring-2 focus-within:ring-red-500">
-            <span className="flex items-center px-3 text-sm text-gray-500 bg-gray-50 border-r border-gray-300 select-none whitespace-nowrap">
-              {typeof window !== "undefined" ? window.location.origin : ""}/
+          <div className="flex rounded-xl border border-neutral-300 overflow-hidden focus-within:border-red-500 focus-within:ring-2 focus-within:ring-red-500/10 bg-neutral-50">
+            <span className="flex items-center px-3 text-xs font-mono text-neutral-500 border-r border-neutral-200 select-none">
+              {typeof window !== "undefined" ? window.location.host : "app"}/
             </span>
             <input
               value={formIdentidade.slug}
               onChange={(e) =>
-                setFormIdentidade((prev) => ({ ...prev, slug: e.target.value }))
+                setFormIdentidade((prev) => ({
+                  ...prev,
+                  slug: e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, ""),
+                }))
               }
               required
-              className="flex-1 min-w-0 px-3 py-2 text-sm focus:outline-none"
+              placeholder="sua-pizzaria"
+              className="flex-1 min-w-0 px-3 py-2 text-sm font-mono focus:outline-none bg-white"
             />
           </div>
+
+          <div className="flex items-center gap-3 mt-2">
+            <button
+              type="button"
+              onClick={copiarLinkCardapio}
+              className="text-xs font-bold text-red-600 hover:text-red-700 inline-flex items-center gap-1.5 transition-colors"
+            >
+              {linkCopiado ? (
+                <>
+                  <FiCheck className="text-emerald-600" />
+                  <span className="text-emerald-700">Link copiado para a área de transferência!</span>
+                </>
+              ) : (
+                <>
+                  <FiCopy />
+                  <span>Copiar link do cardápio</span>
+                </>
+              )}
+            </button>
+
+            {formIdentidade.slug && (
+              <a
+                href={`/${formIdentidade.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-medium text-neutral-500 hover:text-neutral-800 inline-flex items-center gap-1"
+              >
+                <FiExternalLink />
+                <span>Testar abertura</span>
+              </a>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-2 border-t border-neutral-100">
           <button
-            type="button"
-            onClick={() => {
-              navigator.clipboard.writeText(
-                `${window.location.origin}/${formIdentidade.slug}`,
-              );
-            }}
-            className="mt-1.5 text-xs text-red-600 hover:text-red-700 font-medium"
+            type="submit"
+            disabled={salvandoIdentidade || !formIdentidade.nome.trim()}
+            className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-xs transition-colors"
           >
-            Copiar link completo
+            {salvandoIdentidade ? "Salvando..." : "Salvar Identidade"}
           </button>
         </div>
-
-        <button
-          type="submit"
-          disabled={salvandoIdentidade}
-          className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white font-medium py-2.5 rounded-lg transition"
-        >
-          {salvandoIdentidade ? "Salvando..." : "Salvar identidade"}
-        </button>
       </form>
 
-      {/* Card: Entrega e contato */}
+      {/* CARD 3: ENTREGA, ENDEREÇO E CONTATO */}
       <form
         onSubmit={handleSalvarEntrega}
-        className="space-y-5 bg-white border border-gray-200 rounded-xl p-6 mb-5"
+        className="bg-white border border-neutral-200/90 rounded-2xl p-5 shadow-2xs space-y-4"
       >
-        <div>
-          <h2 className="text-base font-semibold text-gray-900">Entrega e contato</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Telefone, endereço da pizzaria e taxa de entrega cobrada do cliente.
-          </p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Telefone
-          </label>
-          <input
-            value={formEntrega.telefone}
-            onChange={(e) =>
-              setFormEntrega((prev) => ({ ...prev, telefone: e.target.value }))
-            }
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Endereço atual
-          </label>
-          <p className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 mb-3">
-            {pizzaria?.endereco || "Nenhum endereço cadastrado"}
-          </p>
-
-          <p className="text-xs text-gray-500 mb-2">
-            Preencha os campos abaixo para atualizar o endereço (isso substitui o
-            endereço atual):
-          </p>
-
-          <div className="grid grid-cols-2 gap-3">
-            <input
-              name="cep"
-              placeholder="CEP"
-              value={endereco.cep}
-              onChange={handleEnderecoChange}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-            />
-            <input
-              name="numero"
-              placeholder="Número"
-              value={endereco.numero}
-              onChange={handleEnderecoChange}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-            />
-            <input
-              name="rua"
-              placeholder="Rua"
-              value={endereco.rua}
-              onChange={handleEnderecoChange}
-              className="col-span-2 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-            />
-            <input
-              name="bairro"
-              placeholder="Bairro"
-              value={endereco.bairro}
-              onChange={handleEnderecoChange}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-            />
-            <input
-              name="cidade"
-              placeholder="Cidade"
-              value={endereco.cidade}
-              onChange={handleEnderecoChange}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-            />
-            <input
-              name="estado"
-              placeholder="Estado (UF)"
-              value={endereco.estado}
-              onChange={handleEnderecoChange}
-              maxLength={2}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-            />
+        <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">📍</span>
+            <div>
+              <h2 className="text-sm font-bold text-neutral-900">
+                Endereço & Contato
+              </h2>
+              <p className="text-[11px] text-neutral-400">
+                Localização da loja física e taxa padrão de entrega
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="border-t border-gray-100 pt-5">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Taxa de entrega
-          </label>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="0,00"
-            value={formEntrega.taxaEntrega}
-            onChange={(e) =>
-              setFormEntrega((prev) => ({ ...prev, taxaEntrega: e.target.value }))
-            }
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Deixe em branco para não cobrar taxa de entrega. Essa é a taxa usada quando
-            o bairro do cliente não estiver na lista abaixo.
-          </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block mb-1">
+              WhatsApp / Telefone da Loja
+            </label>
+            <input
+              value={formEntrega.telefone}
+              onChange={(e) =>
+                setFormEntrega((prev) => ({ ...prev, telefone: e.target.value }))
+              }
+              placeholder="(11) 98765-4321"
+              className="w-full border border-neutral-300 rounded-xl px-3.5 py-2 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/10 font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block mb-1">
+              Taxa Padrão de Entrega (R$)
+            </label>
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="Ex: 7.00 (ou vazio p/ grátis)"
+              value={formEntrega.taxaEntrega}
+              onChange={(e) =>
+                setFormEntrega((prev) => ({ ...prev, taxaEntrega: e.target.value }))
+              }
+              className="w-full border border-neutral-300 rounded-xl px-3.5 py-2 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/10 font-mono"
+            />
+            <p className="text-[10px] text-neutral-400 mt-1">
+              Cobrada caso o cliente more em um bairro fora da tabela abaixo.
+            </p>
+          </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={salvandoEntrega}
-          className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white font-medium py-2.5 rounded-lg transition"
-        >
-          {salvandoEntrega ? "Salvando..." : "Salvar entrega e contato"}
-        </button>
+        {/* Endereço Atual */}
+        <div>
+          <label className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block mb-1">
+            Endereço Cadastrado
+          </label>
+          <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs text-neutral-700">
+            {pizzaria?.endereco ? (
+              <p className="font-medium">📍 {pizzaria.endereco}</p>
+            ) : (
+              <p className="text-neutral-400 italic">Nenhum endereço cadastrado no momento.</p>
+            )}
+          </div>
+        </div>
+
+        {/* Campos para Atualização com CEP automático */}
+        <div className="space-y-3 pt-2">
+          <p className="text-xs font-semibold text-neutral-800">
+            Atualizar Endereço da Pizzaria:
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div>
+              <label className="text-[10px] font-bold text-neutral-400 block mb-0.5">
+                CEP {buscandoCep && "(Buscando...)"}
+              </label>
+              <input
+                name="cep"
+                placeholder="00000-000"
+                value={endereco.cep}
+                onChange={handleCepChange}
+                maxLength={8}
+                className="w-full border border-neutral-300 rounded-xl px-3 py-1.5 text-xs focus:border-red-500 focus:outline-none font-mono"
+              />
+            </div>
+
+            <div className="col-span-1 sm:col-span-3">
+              <label className="text-[10px] font-bold text-neutral-400 block mb-0.5">
+                Rua / Avenida
+              </label>
+              <input
+                name="rua"
+                placeholder="Ex: Rua das Flores"
+                value={endereco.rua}
+                onChange={handleEnderecoChange}
+                className="w-full border border-neutral-300 rounded-xl px-3 py-1.5 text-xs focus:border-red-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold text-neutral-400 block mb-0.5">
+                Número
+              </label>
+              <input
+                name="numero"
+                placeholder="Ex: 120"
+                value={endereco.numero}
+                onChange={handleEnderecoChange}
+                className="w-full border border-neutral-300 rounded-xl px-3 py-1.5 text-xs focus:border-red-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold text-neutral-400 block mb-0.5">
+                Bairro
+              </label>
+              <input
+                name="bairro"
+                placeholder="Bairro"
+                value={endereco.bairro}
+                onChange={handleEnderecoChange}
+                className="w-full border border-neutral-300 rounded-xl px-3 py-1.5 text-xs focus:border-red-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold text-neutral-400 block mb-0.5">
+                Cidade
+              </label>
+              <input
+                name="cidade"
+                placeholder="Cidade"
+                value={endereco.cidade}
+                onChange={handleEnderecoChange}
+                className="w-full border border-neutral-300 rounded-xl px-3 py-1.5 text-xs focus:border-red-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold text-neutral-400 block mb-0.5">
+                UF
+              </label>
+              <input
+                name="estado"
+                placeholder="SP"
+                maxLength={2}
+                value={endereco.estado}
+                onChange={handleEnderecoChange}
+                className="w-full border border-neutral-300 rounded-xl px-3 py-1.5 text-xs focus:border-red-500 focus:outline-none text-center uppercase"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-2 border-t border-neutral-100">
+          <button
+            type="submit"
+            disabled={salvandoEntrega}
+            className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-xs transition-colors"
+          >
+            {salvandoEntrega ? "Salvando..." : "Salvar Endereço e Contato"}
+          </button>
+        </div>
       </form>
 
-      {/* Card: Bairros e taxas de entrega */}
-      <div className="space-y-5 bg-white border border-gray-200 rounded-xl p-6 mb-5">
-        <div>
-          <h2 className="text-base font-semibold text-gray-900">
-            Bairros e taxas de entrega
-          </h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Cadastre um valor diferente por bairro/localidade. Um bairro desativado
-            some do checkout, mas o histórico dos pedidos antigos é preservado.
-          </p>
+      {/* CARD 4: BAIRROS E TAXAS DE ENTREGA */}
+      <section className="bg-white border border-neutral-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🛵</span>
+            <div>
+              <h2 className="text-sm font-bold text-neutral-900">
+                Taxas de Entrega por Bairro
+              </h2>
+              <p className="text-[11px] text-neutral-400">
+                Valores personalizados calculados automaticamente no checkout do cliente
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-mono font-semibold bg-neutral-100 text-neutral-600 px-2.5 py-0.5 rounded-full">
+            {localidades.length} bairros
+          </span>
         </div>
 
+        {/* Cadastro Rápido de Bairro */}
+        <form onSubmit={handleAdicionarLocalidade} className="flex gap-2">
+          <input
+            placeholder="Nome do bairro (ex: Centro, Vila Nova...)"
+            value={novoBairro}
+            onChange={(e) => setNovoBairro(e.target.value)}
+            className="flex-1 border border-neutral-300 rounded-xl px-3 py-2 text-xs focus:border-red-500 focus:outline-none bg-neutral-50/50 focus:bg-white"
+          />
+          <input
+            type="text"
+            inputMode="decimal"
+            placeholder="R$ 8,00"
+            value={novaTaxa}
+            onChange={(e) => setNovaTaxa(e.target.value)}
+            className="w-24 border border-neutral-300 rounded-xl px-3 py-2 text-xs focus:border-red-500 focus:outline-none bg-neutral-50/50 focus:bg-white font-mono text-center"
+          />
+          <button
+            type="submit"
+            disabled={salvandoLocalidade || !novoBairro.trim() || !novaTaxa.trim()}
+            className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl px-3.5 py-2 text-xs font-bold transition-colors shadow-2xs flex items-center gap-1 shrink-0"
+          >
+            <FiPlus />
+            <span className="hidden sm:inline">Adicionar</span>
+          </button>
+        </form>
+
+        {/* Lista de Bairros */}
         {carregandoLocalidades ? (
-          <p className="text-sm text-gray-400">Carregando bairros...</p>
+          <p className="text-xs text-neutral-400 py-4 text-center">Carregando bairros...</p>
+        ) : localidades.length === 0 ? (
+          <div className="py-8 text-center border border-dashed border-neutral-200 rounded-xl text-neutral-400 text-xs">
+            Nenhum bairro cadastrado. A pizzaria cobrará a taxa padrão para todas as entregas.
+          </div>
         ) : (
-          <>
-            {localidades.length === 0 ? (
-              <p className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                Nenhum bairro cadastrado ainda.
-              </p>
-            ) : (
-              <div className="border border-gray-200 rounded-lg divide-y">
-                {localidades.map((loc) => {
-                  const emEdicao = editandoId === loc.id;
+          <div className="border border-neutral-200 rounded-xl divide-y divide-neutral-100 overflow-hidden">
+            {localidades.map((loc) => {
+              const emEdicao = editandoId === loc.id;
 
-                  return (
-                    <div
-                      key={loc.id}
-                      className={`flex items-center justify-between gap-3 px-3 py-2.5 text-sm ${
-                        !loc.ativo && !emEdicao ? "bg-gray-50" : ""
-                      }`}
-                    >
-                      {emEdicao ? (
-                        <div className="flex flex-1 items-center gap-2">
-                          <input
-                            value={editBairro}
-                            onChange={(e) => setEditBairro(e.target.value)}
-                            className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                            autoFocus
-                          />
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={editTaxa}
-                            onChange={(e) => setEditTaxa(e.target.value)}
-                            className="w-24 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleSalvarEdicao(loc.id)}
-                            disabled={
-                              salvandoEdicaoId === loc.id ||
-                              !editBairro.trim() ||
-                              !editTaxa.trim()
-                            }
-                            className="text-green-600 hover:text-green-700 disabled:opacity-50 shrink-0"
-                            title="Salvar"
-                          >
-                            <FiCheck size={18} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleCancelarEdicao}
-                            disabled={salvandoEdicaoId === loc.id}
-                            className="text-gray-400 hover:text-gray-600 disabled:opacity-50 shrink-0"
-                            title="Cancelar"
-                          >
-                            <FiX size={18} />
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span
-                              className={`font-medium truncate ${
-                                loc.ativo ? "text-gray-700" : "text-gray-400"
-                              }`}
-                            >
-                              {loc.bairro}
-                            </span>
-                            {!loc.ativo && (
-                              <span className="shrink-0 text-[11px] font-medium text-gray-500 bg-gray-200 rounded-full px-2 py-0.5">
-                                Inativo
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-3 shrink-0">
-                            <span className={loc.ativo ? "text-gray-600" : "text-gray-400"}>
-                              {Number(loc.taxa).toLocaleString("pt-BR", {
-                                style: "currency",
-                                currency: "BRL",
-                              })}
-                            </span>
-
-                            <button
-                              type="button"
-                              onClick={() => handleAlternarAtivo(loc)}
-                              disabled={alternandoAtivoId === loc.id}
-                              title={loc.ativo ? "Desativar bairro" : "Reativar bairro"}
-                              className={`relative w-9 h-5 rounded-full transition-colors disabled:opacity-50 ${
-                                loc.ativo ? "bg-red-600" : "bg-gray-300"
-                              }`}
-                            >
-                              <span
-                                className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                                  loc.ativo ? "translate-x-4" : "translate-x-0"
-                                }`}
-                              />
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => handleIniciarEdicao(loc)}
-                              className="text-gray-400 hover:text-gray-700"
-                              title="Editar bairro"
-                            >
-                              <FiEdit2 size={15} />
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => handleExcluirLocalidade(loc.id)}
-                              disabled={excluindoId === loc.id}
-                              className="text-red-500 hover:text-red-700 disabled:opacity-50"
-                              title="Remover bairro"
-                            >
-                              <FiTrash2 size={15} />
-                            </button>
-                          </div>
-                        </>
-                      )}
+              return (
+                <div
+                  key={loc.id}
+                  className={`flex items-center justify-between gap-3 px-3.5 py-2.5 text-xs transition-colors ${
+                    !loc.ativo && !emEdicao ? "bg-neutral-50/70" : "bg-white hover:bg-neutral-50/40"
+                  }`}
+                >
+                  {emEdicao ? (
+                    <div className="flex flex-1 items-center gap-2">
+                      <input
+                        value={editBairro}
+                        onChange={(e) => setEditBairro(e.target.value)}
+                        className="flex-1 border border-neutral-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-red-500"
+                        autoFocus
+                      />
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={editTaxa}
+                        onChange={(e) => setEditTaxa(e.target.value)}
+                        className="w-24 border border-neutral-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-red-500 font-mono text-center"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSalvarEdicao(loc.id)}
+                        disabled={salvandoEdicaoId === loc.id || !editBairro.trim()}
+                        className="text-emerald-600 hover:text-emerald-700 p-1"
+                        title="Salvar"
+                      >
+                        <FiCheck size={18} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelarEdicao}
+                        className="text-neutral-400 hover:text-neutral-600 p-1"
+                        title="Cancelar"
+                      >
+                        <FiX size={18} />
+                      </button>
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span
+                          className={`font-semibold truncate ${
+                            loc.ativo ? "text-neutral-800" : "text-neutral-400 line-through"
+                          }`}
+                        >
+                          {loc.bairro}
+                        </span>
+                        {!loc.ativo && (
+                          <span className="shrink-0 text-[10px] font-semibold text-neutral-400 bg-neutral-100 rounded-full px-2 py-0.2">
+                            Pausado
+                          </span>
+                        )}
+                      </div>
 
-            <form
-              onSubmit={handleAdicionarLocalidade}
-              className="flex gap-2 items-start border-t border-gray-100 pt-4"
-            >
-              <input
-                placeholder="Nome do bairro"
-                value={novoBairro}
-                onChange={(e) => setNovoBairro(e.target.value)}
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="Taxa"
-                value={novaTaxa}
-                onChange={(e) => setNovaTaxa(e.target.value)}
-                className="w-28 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
-              <button
-                type="submit"
-                disabled={salvandoLocalidade || !novoBairro.trim() || !novaTaxa.trim()}
-                className="shrink-0 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white rounded-lg px-3 py-2"
-                title="Adicionar bairro"
-              >
-                <FiPlus size={16} />
-              </button>
-            </form>
-          </>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span
+                          className={`font-mono font-bold ${
+                            loc.ativo ? "text-neutral-700" : "text-neutral-400"
+                          }`}
+                        >
+                          {formatarMoeda(Number(loc.taxa))}
+                        </span>
+
+                        <div className="flex items-center gap-1.5 mr-1">
+                          <Toggle
+                            checked={loc.ativo}
+                            onChange={() => handleAlternarAtivo(loc)}
+                            disabled={alternandoAtivoId === loc.id}
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleIniciarEdicao(loc)}
+                          className="text-neutral-400 hover:text-neutral-700 p-1 rounded hover:bg-neutral-100 transition-colors"
+                          title="Editar"
+                        >
+                          <FiEdit2 size={14} />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleExcluirLocalidade(loc.id)}
+                          disabled={excluindoId === loc.id}
+                          className="text-neutral-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50"
+                          title="Excluir"
+                        >
+                          <FiTrash2 size={14} />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
-      </div>
+      </section>
 
-      {/* Card: Impressão */}
+      {/* CARD 5: IMPRESSORA TÉRMICA & BOBINA */}
       <form
         onSubmit={handleSalvarImpressao}
-        className="space-y-5 bg-white border border-gray-200 rounded-xl p-6 mb-5"
+        className="bg-white border border-neutral-200/90 rounded-2xl p-5 shadow-2xs space-y-4"
       >
-        <div>
-          <h2 className="text-base font-semibold text-gray-900">Impressão</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Configuração da impressora térmica de cupons.
-          </p>
+        <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🖨️</span>
+            <div>
+              <h2 className="text-sm font-bold text-neutral-900">
+                Impressão Térmica de Cupons
+              </h2>
+              <p className="text-[11px] text-neutral-400">
+                Ajuste a formatação do cupom para a largura da sua impressora
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Largura do cupom de impressão
-          </label>
-          <select
-            value={larguraCupom}
-            onChange={(e) => setLarguraCupom(e.target.value as "58mm" | "80mm")}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+        {/* Escolha com Cards de Bobina */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label
+            className={`border-2 rounded-xl p-3.5 flex items-start gap-3 cursor-pointer transition-all ${
+              larguraCupom === "80mm"
+                ? "border-red-600 bg-red-50/30"
+                : "border-neutral-200 hover:border-neutral-300"
+            }`}
           >
-            <option value="58mm">58mm</option>
-            <option value="80mm">80mm</option>
-          </select>
-          <p className="text-xs text-gray-500 mt-1">
-            Escolha conforme a largura do rolo de papel da sua impressora térmica.
-          </p>
+            <input
+              type="radio"
+              name="largura_cupom"
+              value="80mm"
+              checked={larguraCupom === "80mm"}
+              onChange={() => setLarguraCupom("80mm")}
+              className="mt-1 text-red-600 focus:ring-red-500"
+            />
+            <div>
+              <p className="font-bold text-xs text-neutral-900">Bobina 80mm (Padrão)</p>
+              <p className="text-[11px] text-neutral-500 leading-tight mt-0.5">
+                Mais larga, excelente legibilidade para impressoras térmicas de balcão e cozinha (Epson, Bematech, Elgin).
+              </p>
+            </div>
+          </label>
+
+          <label
+            className={`border-2 rounded-xl p-3.5 flex items-start gap-3 cursor-pointer transition-all ${
+              larguraCupom === "58mm"
+                ? "border-red-600 bg-red-50/30"
+                : "border-neutral-200 hover:border-neutral-300"
+            }`}
+          >
+            <input
+              type="radio"
+              name="largura_cupom"
+              value="58mm"
+              checked={larguraCupom === "58mm"}
+              onChange={() => setLarguraCupom("58mm")}
+              className="mt-1 text-red-600 focus:ring-red-500"
+            />
+            <div>
+              <p className="font-bold text-xs text-neutral-900">Bobina 58mm (Compacta)</p>
+              <p className="text-[11px] text-neutral-500 leading-tight mt-0.5">
+                Mini impressoras portáteis ou maquininhas POS com bobina estreita de cupom.
+              </p>
+            </div>
+          </label>
         </div>
 
-        <button
-          type="submit"
-          disabled={salvandoImpressao}
-          className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white font-medium py-2.5 rounded-lg transition"
-        >
-          {salvandoImpressao ? "Salvando..." : "Salvar impressão"}
-        </button>
+        <div className="flex justify-end pt-2 border-t border-neutral-100">
+          <button
+            type="submit"
+            disabled={salvandoImpressao}
+            className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-xs transition-colors"
+          >
+            {salvandoImpressao ? "Salvando..." : "Salvar Configuração de Impressão"}
+          </button>
+        </div>
       </form>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Plano atual
-        </label>
-        <p className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 capitalize">
-          {pizzaria?.plano}
-        </p>
+      {/* CARD 6: PLANO DA CONTA */}
+      <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-4 flex items-center justify-between">
+        <div>
+          <span className="text-[10px] uppercase font-bold text-neutral-400 block leading-none">
+            Plano da Licença
+          </span>
+          <p className="text-sm font-bold text-neutral-800 capitalize mt-1">
+            Plano {pizzaria?.plano || "Profissional"}
+          </p>
+        </div>
+        <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
+          Assinatura Ativa
+        </span>
       </div>
     </div>
   );
