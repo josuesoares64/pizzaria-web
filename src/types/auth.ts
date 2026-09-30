@@ -1,5 +1,6 @@
 export interface Usuario {
     id: string;
+    nome?: string;
     email: string;
     role: 'cliente' | 'dono' | 'funcionario' | 'superadmin';
 }

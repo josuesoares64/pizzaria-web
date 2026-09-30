@@ -2,15 +2,28 @@
 
 import { useEffect, useRef, useState } from "react";
 import { pizzariaService } from "@/server/pizzaria.service";
-import { localidadeTaxaService, LocalidadeTaxa } from "@/server/localidadeTaxa.service";
+import {
+  localidadeTaxaService,
+  LocalidadeTaxa,
+} from "@/server/localidadeTaxa.service";
 import { PizzariaMe } from "@/types/pizzaria";
-import { FiTrash2, FiPlus, FiEdit2, FiCheck, FiX, FiCopy, FiExternalLink } from "react-icons/fi";
+import {
+  FiTrash2,
+  FiPlus,
+  FiEdit2,
+  FiCheck,
+  FiX,
+  FiCopy,
+  FiExternalLink,
+} from "react-icons/fi";
 
 function formatarMoeda(valor: number) {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-function tratarValorMoeda(valor: string | number | undefined | null): number | undefined {
+function tratarValorMoeda(
+  valor: string | number | undefined | null,
+): number | undefined {
   if (valor === undefined || valor === null || valor === "") return undefined;
   const str = String(valor).replace(",", ".");
   const num = Number(str);
@@ -64,7 +77,10 @@ export default function ConfiguracoesPage() {
   const [salvandoIdentidade, setSalvandoIdentidade] = useState(false);
 
   // ---- Entrega e Contato ----
-  const [formEntrega, setFormEntrega] = useState({ telefone: "", taxaEntrega: "" });
+  const [formEntrega, setFormEntrega] = useState({
+    telefone: "",
+    taxaEntrega: "",
+  });
   const [endereco, setEndereco] = useState({
     cep: "",
     rua: "",
@@ -86,7 +102,9 @@ export default function ConfiguracoesPage() {
   const [editBairro, setEditBairro] = useState("");
   const [editTaxa, setEditTaxa] = useState("");
   const [salvandoEdicaoId, setSalvandoEdicaoId] = useState<string | null>(null);
-  const [alternandoAtivoId, setAlternandoAtivoId] = useState<string | null>(null);
+  const [alternandoAtivoId, setAlternandoAtivoId] = useState<string | null>(
+    null,
+  );
 
   // ---- Impressão ----
   const [larguraCupom, setLarguraCupom] = useState<"58mm" | "80mm">("80mm");
@@ -108,7 +126,10 @@ export default function ConfiguracoesPage() {
         setLarguraCupom(dados.largura_cupom || "80mm");
       } catch (err) {
         console.error(err);
-        setMensagem({ tipo: "erro", texto: "Erro ao carregar dados da pizzaria" });
+        setMensagem({
+          tipo: "erro",
+          texto: "Erro ao carregar dados da pizzaria",
+        });
       } finally {
         setLoading(false);
       }
@@ -205,7 +226,10 @@ export default function ConfiguracoesPage() {
       });
       setPizzaria(atualizado);
       setFormIdentidade({ nome: atualizado.nome, slug: atualizado.slug });
-      setMensagem({ tipo: "sucesso", texto: "Identidade atualizada com sucesso!" });
+      setMensagem({
+        tipo: "sucesso",
+        texto: "Identidade atualizada com sucesso!",
+      });
     } catch (err) {
       setMensagem({
         tipo: "erro",
@@ -236,12 +260,23 @@ export default function ConfiguracoesPage() {
       setFormEntrega({
         telefone: atualizado.telefone || "",
         taxaEntrega:
-          atualizado.taxa_entrega !== null && atualizado.taxa_entrega !== undefined
+          atualizado.taxa_entrega !== null &&
+          atualizado.taxa_entrega !== undefined
             ? String(atualizado.taxa_entrega)
             : "",
       });
-      setEndereco({ cep: "", rua: "", numero: "", bairro: "", cidade: "", estado: "" });
-      setMensagem({ tipo: "sucesso", texto: "Entrega e contato atualizados com sucesso!" });
+      setEndereco({
+        cep: "",
+        rua: "",
+        numero: "",
+        bairro: "",
+        cidade: "",
+        estado: "",
+      });
+      setMensagem({
+        tipo: "sucesso",
+        texto: "Entrega e contato atualizados com sucesso!",
+      });
     } catch (err) {
       setMensagem({
         tipo: "erro",
@@ -257,7 +292,10 @@ export default function ConfiguracoesPage() {
     e.preventDefault();
     const taxaNum = tratarValorMoeda(novaTaxa);
     if (!novoBairro.trim() || taxaNum === undefined) {
-      setMensagem({ tipo: "erro", texto: "Informe o nome do bairro e um valor de taxa válido." });
+      setMensagem({
+        tipo: "erro",
+        texto: "Informe o nome do bairro e um valor de taxa válido.",
+      });
       return;
     }
 
@@ -286,7 +324,7 @@ export default function ConfiguracoesPage() {
 
   // ---- Excluir Bairro/Taxa ----
   async function handleExcluirLocalidade(id: string) {
-    const confirmar = window.confirm(
+    const confirmado = window.confirm(
       "Remover esse bairro? Os pedidos dessa região voltarão a usar a taxa padrão da pizzaria.",
     );
     if (!confirmado) return;
@@ -354,7 +392,9 @@ export default function ConfiguracoesPage() {
       const atualizada = await localidadeTaxaService.atualizar(loc.id, {
         ativo: !loc.ativo,
       });
-      setLocalidades((prev) => prev.map((l) => (l.id === loc.id ? atualizada : l)));
+      setLocalidades((prev) =>
+        prev.map((l) => (l.id === loc.id ? atualizada : l)),
+      );
       setMensagem({
         tipo: "sucesso",
         texto: atualizada.ativo
@@ -364,7 +404,10 @@ export default function ConfiguracoesPage() {
     } catch (err) {
       setMensagem({
         tipo: "erro",
-        texto: err instanceof Error ? err.message : "Erro ao alterar status do bairro",
+        texto:
+          err instanceof Error
+            ? err.message
+            : "Erro ao alterar status do bairro",
       });
     } finally {
       setAlternandoAtivoId(null);
@@ -384,11 +427,17 @@ export default function ConfiguracoesPage() {
       });
       setPizzaria(atualizado);
       setLarguraCupom(atualizado.largura_cupom);
-      setMensagem({ tipo: "sucesso", texto: "Formato de impressão salvo com sucesso!" });
+      setMensagem({
+        tipo: "sucesso",
+        texto: "Formato de impressão salvo com sucesso!",
+      });
     } catch (err) {
       setMensagem({
         tipo: "erro",
-        texto: err instanceof Error ? err.message : "Erro ao salvar formato de impressão",
+        texto:
+          err instanceof Error
+            ? err.message
+            : "Erro ao salvar formato de impressão",
       });
     } finally {
       setSalvandoImpressao(false);
@@ -407,8 +456,14 @@ export default function ConfiguracoesPage() {
       setPizzaria(atualizado);
       const agora = Date.now();
       setLogoCacheBuster(agora);
-      window.localStorage.setItem("forno-menu:logo-cache-buster", String(agora));
-      setMensagem({ tipo: "sucesso", texto: "Logomarca atualizada com sucesso!" });
+      window.localStorage.setItem(
+        "forno-menu:logo-cache-buster",
+        String(agora),
+      );
+      setMensagem({
+        tipo: "sucesso",
+        texto: "Logomarca atualizada com sucesso!",
+      });
     } catch (err) {
       setMensagem({
         tipo: "erro",
@@ -423,7 +478,9 @@ export default function ConfiguracoesPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[350px] gap-2.5 text-neutral-500">
         <div className="w-7 h-7 border-3 border-red-600 border-t-transparent rounded-full animate-spin" />
-        <p className="text-xs font-medium">Carregando configurações da pizzaria...</p>
+        <p className="text-xs font-medium">
+          Carregando configurações da pizzaria...
+        </p>
       </div>
     );
   }
@@ -436,7 +493,8 @@ export default function ConfiguracoesPage() {
           Configurações da Pizzaria
         </h1>
         <p className="text-xs text-neutral-500 mt-0.5">
-          Personalize a identidade da loja, taxas de entrega por bairro e impressora térmica
+          Personalize a identidade da loja, taxas de entrega por bairro e
+          impressora térmica
         </p>
       </header>
 
@@ -508,7 +566,8 @@ export default function ConfiguracoesPage() {
               </button>
             </div>
             <p className="text-[11px] text-neutral-400 leading-tight">
-              Formatos recomendados: PNG ou JPG em formato quadrado (mín. 400x400px).
+              Formatos recomendados: PNG ou JPG em formato quadrado (mín.
+              400x400px).
             </p>
           </div>
         </div>
@@ -561,7 +620,9 @@ export default function ConfiguracoesPage() {
               onChange={(e) =>
                 setFormIdentidade((prev) => ({
                   ...prev,
-                  slug: e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, ""),
+                  slug: e.target.value
+                    .toLowerCase()
+                    .replace(/[^a-z0-9-_]/g, ""),
                 }))
               }
               required
@@ -579,7 +640,9 @@ export default function ConfiguracoesPage() {
               {linkCopiado ? (
                 <>
                   <FiCheck className="text-emerald-600" />
-                  <span className="text-emerald-700">Link copiado para a área de transferência!</span>
+                  <span className="text-emerald-700">
+                    Link copiado para a área de transferência!
+                  </span>
                 </>
               ) : (
                 <>
@@ -641,7 +704,10 @@ export default function ConfiguracoesPage() {
             <input
               value={formEntrega.telefone}
               onChange={(e) =>
-                setFormEntrega((prev) => ({ ...prev, telefone: e.target.value }))
+                setFormEntrega((prev) => ({
+                  ...prev,
+                  telefone: e.target.value,
+                }))
               }
               placeholder="(11) 98765-4321"
               className="w-full border border-neutral-300 rounded-xl px-3.5 py-2 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/10 font-mono"
@@ -658,7 +724,10 @@ export default function ConfiguracoesPage() {
               placeholder="Ex: 7.00 (ou vazio p/ grátis)"
               value={formEntrega.taxaEntrega}
               onChange={(e) =>
-                setFormEntrega((prev) => ({ ...prev, taxaEntrega: e.target.value }))
+                setFormEntrega((prev) => ({
+                  ...prev,
+                  taxaEntrega: e.target.value,
+                }))
               }
               className="w-full border border-neutral-300 rounded-xl px-3.5 py-2 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/10 font-mono"
             />
@@ -677,7 +746,9 @@ export default function ConfiguracoesPage() {
             {pizzaria?.endereco ? (
               <p className="font-medium">📍 {pizzaria.endereco}</p>
             ) : (
-              <p className="text-neutral-400 italic">Nenhum endereço cadastrado no momento.</p>
+              <p className="text-neutral-400 italic">
+                Nenhum endereço cadastrado no momento.
+              </p>
             )}
           </div>
         </div>
@@ -792,7 +863,8 @@ export default function ConfiguracoesPage() {
                 Taxas de Entrega por Bairro
               </h2>
               <p className="text-[11px] text-neutral-400">
-                Valores personalizados calculados automaticamente no checkout do cliente
+                Valores personalizados calculados automaticamente no checkout do
+                cliente
               </p>
             </div>
           </div>
@@ -819,7 +891,9 @@ export default function ConfiguracoesPage() {
           />
           <button
             type="submit"
-            disabled={salvandoLocalidade || !novoBairro.trim() || !novaTaxa.trim()}
+            disabled={
+              salvandoLocalidade || !novoBairro.trim() || !novaTaxa.trim()
+            }
             className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl px-3.5 py-2 text-xs font-bold transition-colors shadow-2xs flex items-center gap-1 shrink-0"
           >
             <FiPlus />
@@ -829,10 +903,13 @@ export default function ConfiguracoesPage() {
 
         {/* Lista de Bairros */}
         {carregandoLocalidades ? (
-          <p className="text-xs text-neutral-400 py-4 text-center">Carregando bairros...</p>
+          <p className="text-xs text-neutral-400 py-4 text-center">
+            Carregando bairros...
+          </p>
         ) : localidades.length === 0 ? (
           <div className="py-8 text-center border border-dashed border-neutral-200 rounded-xl text-neutral-400 text-xs">
-            Nenhum bairro cadastrado. A pizzaria cobrará a taxa padrão para todas as entregas.
+            Nenhum bairro cadastrado. A pizzaria cobrará a taxa padrão para
+            todas as entregas.
           </div>
         ) : (
           <div className="border border-neutral-200 rounded-xl divide-y divide-neutral-100 overflow-hidden">
@@ -843,7 +920,9 @@ export default function ConfiguracoesPage() {
                 <div
                   key={loc.id}
                   className={`flex items-center justify-between gap-3 px-3.5 py-2.5 text-xs transition-colors ${
-                    !loc.ativo && !emEdicao ? "bg-neutral-50/70" : "bg-white hover:bg-neutral-50/40"
+                    !loc.ativo && !emEdicao
+                      ? "bg-neutral-50/70"
+                      : "bg-white hover:bg-neutral-50/40"
                   }`}
                 >
                   {emEdicao ? (
@@ -864,7 +943,9 @@ export default function ConfiguracoesPage() {
                       <button
                         type="button"
                         onClick={() => handleSalvarEdicao(loc.id)}
-                        disabled={salvandoEdicaoId === loc.id || !editBairro.trim()}
+                        disabled={
+                          salvandoEdicaoId === loc.id || !editBairro.trim()
+                        }
                         className="text-emerald-600 hover:text-emerald-700 p-1"
                         title="Salvar"
                       >
@@ -884,7 +965,9 @@ export default function ConfiguracoesPage() {
                       <div className="flex items-center gap-2.5 min-w-0">
                         <span
                           className={`font-semibold truncate ${
-                            loc.ativo ? "text-neutral-800" : "text-neutral-400 line-through"
+                            loc.ativo
+                              ? "text-neutral-800"
+                              : "text-neutral-400 line-through"
                           }`}
                         >
                           {loc.bairro}
@@ -978,9 +1061,12 @@ export default function ConfiguracoesPage() {
               className="mt-1 text-red-600 focus:ring-red-500"
             />
             <div>
-              <p className="font-bold text-xs text-neutral-900">Bobina 80mm (Padrão)</p>
+              <p className="font-bold text-xs text-neutral-900">
+                Bobina 80mm (Padrão)
+              </p>
               <p className="text-[11px] text-neutral-500 leading-tight mt-0.5">
-                Mais larga, excelente legibilidade para impressoras térmicas de balcão e cozinha (Epson, Bematech, Elgin).
+                Mais larga, excelente legibilidade para impressoras térmicas de
+                balcão e cozinha (Epson, Bematech, Elgin).
               </p>
             </div>
           </label>
@@ -1001,9 +1087,12 @@ export default function ConfiguracoesPage() {
               className="mt-1 text-red-600 focus:ring-red-500"
             />
             <div>
-              <p className="font-bold text-xs text-neutral-900">Bobina 58mm (Compacta)</p>
+              <p className="font-bold text-xs text-neutral-900">
+                Bobina 58mm (Compacta)
+              </p>
               <p className="text-[11px] text-neutral-500 leading-tight mt-0.5">
-                Mini impressoras portáteis ou maquininhas POS com bobina estreita de cupom.
+                Mini impressoras portáteis ou maquininhas POS com bobina
+                estreita de cupom.
               </p>
             </div>
           </label>
@@ -1015,7 +1104,9 @@ export default function ConfiguracoesPage() {
             disabled={salvandoImpressao}
             className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-xs transition-colors"
           >
-            {salvandoImpressao ? "Salvando..." : "Salvar Configuração de Impressão"}
+            {salvandoImpressao
+              ? "Salvando..."
+              : "Salvar Configuração de Impressão"}
           </button>
         </div>
       </form>
