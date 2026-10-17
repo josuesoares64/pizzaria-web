@@ -10,11 +10,13 @@ export default function ReciboModal({
   larguraCupom,
   nomePizzaria,
   onClose,
+  imprimirAoAbrir = false, // NOVO
 }: {
   pedido: Order;
   larguraCupom: "58mm" | "80mm";
   nomePizzaria: string;
   onClose: () => void;
+  imprimirAoAbrir?: boolean; // NOVO
 }) {
   const [montado, setMontado] = useState(false);
 
@@ -25,6 +27,17 @@ export default function ReciboModal({
   function handleImprimir() {
     window.print();
   }
+
+  // NOVO: se veio da impressão automática, imprime sozinho e fecha
+  useEffect(() => {
+    if (!imprimirAoAbrir || !montado) return;
+    const t = setTimeout(() => {
+      window.print();
+      onClose();
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imprimirAoAbrir, montado]);
 
   useEffect(() => {
     const style = document.createElement("style");

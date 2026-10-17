@@ -16,7 +16,16 @@ export default function ImpressaoAutomatica({
 }: ImpressaoAutomaticaProps) {
   const jaProcessadosRef = useRef<Set<string>>(new Set());
 
+  console.log("[auto-impressao] componente renderizou", { ativo, total: pedidos.length });
+
   useEffect(() => {
+    // NOVO: log para diagnóstico
+    console.log("[auto-impressao]", {
+      ativo,
+      total: pedidos.length,
+      status: pedidos.map((p) => `${p.status}|impresso_em=${p.impresso_em ?? "null"}`),
+    });
+
     if (!ativo) return;
 
     // Procura pedidos pendentes ou confirmados que ainda não foram impressos

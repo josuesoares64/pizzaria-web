@@ -31,7 +31,8 @@ const COLUNAS_ATIVAS: ColunaConfig[] = [
     icone: "⏳",
     proximoStatus: "confirmado",
     proximoLabel: "Confirmar Pedido",
-    corBotaoAvanco: "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20",
+    corBotaoAvanco:
+      "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20",
   },
   {
     status: "confirmado",
@@ -43,7 +44,8 @@ const COLUNAS_ATIVAS: ColunaConfig[] = [
     icone: "📋",
     proximoStatus: "preparando",
     proximoLabel: "Iniciar Preparo",
-    corBotaoAvanco: "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20",
+    corBotaoAvanco:
+      "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20",
   },
   {
     status: "preparando",
@@ -55,7 +57,8 @@ const COLUNAS_ATIVAS: ColunaConfig[] = [
     icone: "🔥",
     proximoStatus: "saiu_para_entrega",
     proximoLabel: "Pronto / Despachar",
-    corBotaoAvanco: "bg-orange-600 hover:bg-orange-700 text-white shadow-orange-500/20",
+    corBotaoAvanco:
+      "bg-orange-600 hover:bg-orange-700 text-white shadow-orange-500/20",
   },
   {
     status: "saiu_para_entrega",
@@ -67,7 +70,8 @@ const COLUNAS_ATIVAS: ColunaConfig[] = [
     icone: "🛵",
     proximoStatus: "entregue",
     proximoLabel: "Finalizar Entrega",
-    corBotaoAvanco: "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20",
+    corBotaoAvanco:
+      "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20",
   },
 ];
 
@@ -80,7 +84,10 @@ const STATUS_OPCOES: { value: StatusPedido; label: string }[] = [
   { value: "cancelado", label: "❌ Cancelado" },
 ];
 
-const FORMA_PAGAMENTO_INFO: Record<string, { label: string; badge: string; icone: string }> = {
+const FORMA_PAGAMENTO_INFO: Record<
+  string,
+  { label: string; badge: string; icone: string }
+> = {
   dinheiro: {
     label: "Dinheiro",
     badge: "bg-emerald-50 text-emerald-800 border-emerald-200",
@@ -111,15 +118,20 @@ interface Toast {
 }
 
 export default function PedidosKanban() {
+  console.log("[kanban] renderizou, arquivo certo");
   const [pedidos, setPedidos] = useState<Order[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [aba, setAba] = useState<"ativos" | "historico">("ativos");
   const [larguraCupom, setLarguraCupom] = useState<"58mm" | "80mm">("80mm");
   const [nomePizzaria, setNomePizzaria] = useState("");
-  const [pedidoParaImprimir, setPedidoParaImprimir] = useState<Order | null>(null);
+  const [pedidoParaImprimir, setPedidoParaImprimir] = useState<Order | null>(
+    null,
+  );
   const [impressaoAutomatica, setImpressaoAutomatica] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [filaImpressao, setFilaImpressao] = useState<Order[]>([]);
+  const pedidoAuto = filaImpressao[0] ?? null;
 
   const buscarPedidos = useCallback(async (silencioso = false) => {
     if (!silencioso) setCarregando(true);
@@ -157,7 +169,9 @@ export default function PedidosKanban() {
     const novoValor = !impressaoAutomatica;
     setImpressaoAutomatica(novoValor);
     localStorage.setItem(CHAVE_IMPRESSAO_AUTOMATICA, String(novoValor));
-    mostrarToast(novoValor ? "🖨️ Auto-impressão ativada" : "Auto-impressão desativada");
+    mostrarToast(
+      novoValor ? "🖨️ Auto-impressão ativada" : "Auto-impressão desativada",
+    );
   }
 
   function mostrarToast(mensagem: string) {
@@ -168,9 +182,20 @@ export default function PedidosKanban() {
     }, 4000);
   }
 
-  function handlePedidoImpressoAutomaticamente(pedido: Order) {
+  function handleEnfileirarImpressao(pedido: Order) {
+    setFilaImpressao((prev) =>
+      prev.some((p) => p.id === pedido.id) ? prev : [...prev, pedido],
+    );
+  }
+
+  function handleImpressaoConcluida(pedido: Order) {
+    setFilaImpressao((prev) => prev.slice(1));
     setPedidos((prev) =>
-      prev.map((p) => (p.id === pedido.id ? { ...p, impresso_em: new Date().toISOString() } : p))
+      prev.map((p) =>
+        p.id === pedido.id
+          ? { ...p, impresso_em: new Date().toISOString() }
+          : p,
+      ),
     );
     mostrarToast(`🖨️ Pedido #${pedido.id.slice(0, 8).toUpperCase()} impresso`);
   }
@@ -178,12 +203,15 @@ export default function PedidosKanban() {
   async function handleMudarStatus(orderId: string, novoStatus: StatusPedido) {
     const anterior = pedidos;
     setPedidos((prev) =>
-      prev.map((p) => (p.id === orderId ? { ...p, status: novoStatus } : p))
+      prev.map((p) => (p.id === orderId ? { ...p, status: novoStatus } : p)),
     );
     try {
       await orderService.atualizarStatus(orderId, novoStatus);
-      const label = STATUS_OPCOES.find((s) => s.value === novoStatus)?.label || novoStatus;
-      mostrarToast(`Pedido #${orderId.slice(0, 8).toUpperCase()} alterado para ${label}`);
+      const label =
+        STATUS_OPCOES.find((s) => s.value === novoStatus)?.label || novoStatus;
+      mostrarToast(
+        `Pedido #${orderId.slice(0, 8).toUpperCase()} alterado para ${label}`,
+      );
     } catch {
       setPedidos(anterior);
       setErro("Não foi possível atualizar o status desse pedido.");
@@ -200,11 +228,13 @@ export default function PedidosKanban() {
   }
 
   const pedidosAtivos = pedidos.filter((p) =>
-    ["pendente", "confirmado", "preparando", "saiu_para_entrega"].includes(p.status)
+    ["pendente", "confirmado", "preparando", "saiu_para_entrega"].includes(
+      p.status,
+    ),
   );
 
   const pedidosHistorico = pedidos.filter((p) =>
-    ["entregue", "cancelado"].includes(p.status)
+    ["entregue", "cancelado"].includes(p.status),
   );
 
   return (
@@ -314,8 +344,13 @@ export default function PedidosKanban() {
         /* Grid das 4 Colunas Kanban */
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
           {COLUNAS_ATIVAS.map((coluna) => {
-            const itensColuna = pedidos.filter((p) => p.status === coluna.status);
-            const totalColuna = itensColuna.reduce((soma, p) => soma + Number(p.total), 0);
+            const itensColuna = pedidos.filter(
+              (p) => p.status === coluna.status,
+            );
+            const totalColuna = itensColuna.reduce(
+              (soma, p) => soma + Number(p.total),
+              0,
+            );
 
             return (
               <div
@@ -348,7 +383,9 @@ export default function PedidosKanban() {
                   {itensColuna.length > 0 && (
                     <div className="mt-2 pt-1.5 border-t border-black/5 flex items-center justify-between text-[11px] font-mono">
                       <span className="opacity-70">Total:</span>
-                      <span className="font-semibold">{formatarMoeda(totalColuna)}</span>
+                      <span className="font-semibold">
+                        {formatarMoeda(totalColuna)}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -357,7 +394,9 @@ export default function PedidosKanban() {
                 <div className="flex flex-col gap-3 min-h-[120px]">
                   {itensColuna.length === 0 ? (
                     <div className="py-8 px-4 text-center rounded-xl border border-dashed border-neutral-300 bg-white/50 text-neutral-400">
-                      <span className="text-xl block mb-1 opacity-50">{coluna.icone}</span>
+                      <span className="text-xl block mb-1 opacity-50">
+                        {coluna.icone}
+                      </span>
                       <p className="text-xs font-medium">Nenhum pedido aqui</p>
                     </div>
                   ) : (
@@ -431,8 +470,19 @@ export default function PedidosKanban() {
         ativo={impressaoAutomatica}
         larguraCupom={larguraCupom}
         nomePizzaria={nomePizzaria}
-        onImprimir={handlePedidoImpressoAutomaticamente}
+        onImprimir={handleEnfileirarImpressao}
       />
+      
+      {pedidoAuto && (
+        <ReciboModal
+          key={pedidoAuto.id}
+          pedido={pedidoAuto}
+          larguraCupom={larguraCupom}
+          nomePizzaria={nomePizzaria}
+          imprimirAoAbrir
+          onClose={() => handleImpressaoConcluida(pedidoAuto)}
+        />
+      )}
 
       {/* Toasts Flutuantes */}
       <div className="fixed bottom-4 right-4 flex flex-col gap-2 z-[60] no-print">
@@ -468,7 +518,10 @@ function TipoPedidoBanner({
           </div>
           {taxaEntregaNumero !== null && (
             <span className="text-[11px] font-mono bg-white/20 backdrop-blur-xs px-2 py-0.5 rounded font-semibold text-white">
-              Taxa: {taxaEntregaNumero === 0 ? "Grátis" : formatarMoeda(taxaEntregaNumero)}
+              Taxa:{" "}
+              {taxaEntregaNumero === 0
+                ? "Grátis"
+                : formatarMoeda(taxaEntregaNumero)}
             </span>
           )}
         </div>
@@ -541,7 +594,10 @@ function PedidoCard({
 
   // Subtotal vem sempre da soma dos itens (fonte confiável, independe de taxa),
   // e a taxa de entrega vem direto do snapshot salvo no pedido.
-  const subtotalNumero = pedido.itens.reduce((soma, item) => soma + Number(item.subtotal), 0);
+  const subtotalNumero = pedido.itens.reduce(
+    (soma, item) => soma + Number(item.subtotal),
+    0,
+  );
   const taxaEntregaNumero =
     pedido.tipo_pedido === "entrega" && pedido.taxa_entrega !== undefined
       ? Number(pedido.taxa_entrega)
@@ -553,7 +609,9 @@ function PedidoCard({
           `${pedido.endereco_rua}, ${pedido.endereco_numero}`,
           pedido.endereco_bairro,
           pedido.endereco_complemento,
-          pedido.endereco_referencia ? `Ref: ${pedido.endereco_referencia}` : null,
+          pedido.endereco_referencia
+            ? `Ref: ${pedido.endereco_referencia}`
+            : null,
         ]
           .filter(Boolean)
           .join(" — ")
@@ -598,7 +656,7 @@ function PedidoCard({
           {pedido.cliente?.telefone ? (
             <a
               href={`https://wa.me/${telefoneWhatsapp}?text=Ol%C3%A1%2C+${encodeURIComponent(
-                pedido.cliente?.nome ?? "Cliente"
+                pedido.cliente?.nome ?? "Cliente",
               )}%21+Falamos+da+pizzaria+sobre+o+seu+pedido.`}
               target="_blank"
               rel="noopener noreferrer"
@@ -710,10 +768,14 @@ function PedidoCard({
             <span className="text-neutral-500">Taxa de entrega</span>
             <span
               className={`font-semibold ${
-                taxaEntregaNumero === 0 ? "text-emerald-600" : "text-neutral-800"
+                taxaEntregaNumero === 0
+                  ? "text-emerald-600"
+                  : "text-neutral-800"
               }`}
             >
-              {taxaEntregaNumero === 0 ? "Grátis" : formatarMoeda(taxaEntregaNumero)}
+              {taxaEntregaNumero === 0
+                ? "Grátis"
+                : formatarMoeda(taxaEntregaNumero)}
             </span>
           </div>
         </div>
@@ -765,7 +827,9 @@ function PedidoCard({
         {colunaConfig?.proximoStatus && (
           <button
             type="button"
-            onClick={() => onMudarStatus(pedido.id, colunaConfig.proximoStatus!)}
+            onClick={() =>
+              onMudarStatus(pedido.id, colunaConfig.proximoStatus!)
+            }
             className={`w-full py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-xs ${colunaConfig.corBotaoAvanco}`}
           >
             <span>{colunaConfig.proximoLabel}</span>
@@ -776,7 +840,9 @@ function PedidoCard({
         {/* Seletor Completo para qualquer Status */}
         <select
           value={pedido.status}
-          onChange={(e) => onMudarStatus(pedido.id, e.target.value as StatusPedido)}
+          onChange={(e) =>
+            onMudarStatus(pedido.id, e.target.value as StatusPedido)
+          }
           className="w-full text-xs border border-neutral-200 rounded-lg px-2 py-1.5 bg-white text-neutral-700 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/20"
         >
           {STATUS_OPCOES.map((opt) => (
