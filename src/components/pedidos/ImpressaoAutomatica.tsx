@@ -16,8 +16,6 @@ export default function ImpressaoAutomatica({
 }: ImpressaoAutomaticaProps) {
   const jaProcessadosRef = useRef<Set<string>>(new Set());
 
-  console.log("[auto-impressao] componente renderizou", { ativo, total: pedidos.length });
-
   useEffect(() => {
     // NOVO: log para diagnóstico
     console.log("[auto-impressao]", {

@@ -118,7 +118,6 @@ interface Toast {
 }
 
 export default function PedidosKanban() {
-  console.log("[kanban] renderizou, arquivo certo");
   const [pedidos, setPedidos] = useState<Order[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -472,7 +471,7 @@ export default function PedidosKanban() {
         nomePizzaria={nomePizzaria}
         onImprimir={handleEnfileirarImpressao}
       />
-      
+
       {pedidoAuto && (
         <ReciboModal
           key={pedidoAuto.id}
